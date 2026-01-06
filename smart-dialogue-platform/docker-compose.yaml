@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  # 核心平台服务
+  platform:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+      - "8080:8080"
+    environment:
+      - DEPLOYMENT_MODE=cloud
+      - DATABASE_URL=postgresql://postgres:password@db:5432/smart_dialogue
+      - MQTT_BROKER=mqtt://mqtt:1883
+    depends_on:
+      - db
+      - mqtt
+      - redis
+    volumes:
+      - ./config:/app/config
+      - ./models:/app/models
+      - ./logs:/app/logs
+
+  # 音频处理服务（可独立扩展）
+  audio-processor:
+    build:
+      context: .
+      dockerfile: Dockerfile.audio
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    deploy:
+      replicas: 2
+
+  # 意图引擎服务
+  intent-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile.intent
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+
+  # PostgreSQL 数据库
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=smart_dialogue
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  # MQTT Broker
+  mqtt:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./config/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto_data:/mosquitto/data
+
+  # Redis（消息队列和缓存）
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  mosquitto_data:
+  redis_data:
