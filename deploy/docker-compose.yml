@@ -1,0 +1,111 @@
+# -*- coding: utf-8 -*-
+# 知境中枢 - Docker Compose 部署配置
+# 
+# 使用方法：
+#   启动所有服务：docker-compose up -d
+#   停止所有服务：docker-compose down
+#   查看日志：docker-compose logs -f
+#
+# 注意事项：
+#   - 首次启动前，请先复制 .env.example 为 .env 并修改配置
+#   - 生产环境请修改默认密码
+
+version: '3.8'
+
+services:
+  # ========== 后端服务 ==========
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: zhijing-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/zhijing
+      - REDIS_URL=redis://redis:6379/0
+      - MQTT_BROKER=emqx
+      - MQTT_PORT=1883
+    depends_on:
+      - postgres
+      - redis
+      - emqx
+    networks:
+      - zhijing-network
+
+  # ========== PostgreSQL 数据库 ==========
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: zhijing-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=zhijing
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - zhijing-network
+
+  # ========== Redis 缓存 ==========
+  redis:
+    image: redis:7-alpine
+    container_name: zhijing-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - zhijing-network
+
+  # ========== EMQX MQTT Broker ==========
+  emqx:
+    image: emqx/emqx:5
+    container_name: zhijing-emqx
+    restart: unless-stopped
+    ports:
+      - "1883:1883"    # MQTT 端口
+      - "8083:8083"    # WebSocket 端口
+      - "18083:18083"  # 管理控制台
+    volumes:
+      - emqx-data:/opt/emqx/data
+    networks:
+      - zhijing-network
+
+  # ========== MinIO 对象存储 ==========
+  minio:
+    image: minio/minio:latest
+    container_name: zhijing-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"    # API 端口
+      - "9001:9001"    # 控制台端口
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - zhijing-network
+
+# ========== 数据卷 ==========
+volumes:
+  postgres-data:
+    name: zhijing-postgres-data
+  redis-data:
+    name: zhijing-redis-data
+  emqx-data:
+    name: zhijing-emqx-data
+  minio-data:
+    name: zhijing-minio-data
+
+# ========== 网络 ==========
+networks:
+  zhijing-network:
+    name: zhijing-network
+    driver: bridge
