@@ -18,6 +18,7 @@ import {
   Setting,
   Fold,
   Expand,
+  ChatDotRound,
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -32,6 +33,7 @@ const activeMenu = computed(() => route.path)
 // 菜单配置
 const menuItems = [
   { path: '/dashboard', title: '仪表盘', icon: Monitor },
+  { path: '/chat', title: 'AI 对话', icon: ChatDotRound },
   { path: '/devices', title: '设备管理', icon: SetUp },
   { path: '/memories', title: '记忆管理', icon: Document },
   { path: '/settings', title: '系统设置', icon: Setting },

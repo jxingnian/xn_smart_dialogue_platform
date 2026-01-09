@@ -23,6 +23,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '仪表盘', icon: 'Monitor' },
       },
       {
+        path: 'chat',
+        name: 'Chat',
+        component: () => import('@/views/chat/index.vue'),
+        meta: { title: 'AI 对话', icon: 'ChatDotRound' },
+      },
+      {
         path: 'devices',
         name: 'Devices',
         component: () => import('@/views/device/index.vue'),

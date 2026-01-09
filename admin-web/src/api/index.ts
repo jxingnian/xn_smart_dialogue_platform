@@ -38,17 +38,21 @@ request.interceptors.response.use(
   (response: AxiosResponse) => {
     const { data } = response
     
-    // 业务错误处理
-    if (data.code !== 0) {
-      ElMessage.error(data.message || '请求失败')
-      return Promise.reject(new Error(data.message))
+    // 如果响应包含 code 字段，按统一格式处理
+    if (data && typeof data.code !== 'undefined') {
+      if (data.code !== 0) {
+        ElMessage.error(data.message || '请求失败')
+        return Promise.reject(new Error(data.message))
+      }
+      return data.data
     }
     
-    return data.data
+    // 否则直接返回数据（兼容直接返回对象的接口）
+    return data
   },
   (error) => {
     // HTTP 错误处理
-    const message = error.response?.data?.message || error.message || '网络错误'
+    const message = error.response?.data?.detail || error.response?.data?.message || error.message || '网络错误'
     ElMessage.error(message)
     return Promise.reject(error)
   }

@@ -21,7 +21,7 @@ API v1 版本模块
 
 from fastapi import APIRouter
 
-from app.api.v1 import device, memory, chat
+from app.api.v1 import device, memory, chat, config
 
 # 创建 v1 版本的总路由
 router = APIRouter()
@@ -30,3 +30,4 @@ router = APIRouter()
 router.include_router(device.router, prefix="/devices", tags=["设备管理"])
 router.include_router(memory.router, prefix="/memories", tags=["记忆管理"])
 router.include_router(chat.router, prefix="/chat", tags=["对话交互"])
+router.include_router(config.router, prefix="/config", tags=["系统配置"])
