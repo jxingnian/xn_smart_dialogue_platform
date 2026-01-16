@@ -1,0 +1,13 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/logs/logs"
+  ],
+  "window": {
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "ESP32蓝牙配网",
+    "navigationBarBackgroundColor": "#667eea"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

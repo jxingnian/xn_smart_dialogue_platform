@@ -1,0 +1,31 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# ESP32 Build Files
+build/
+sdkconfig
+sdkconfig.old
+.config
+.config.old
+dependencies.lock
+
+# WeChat MiniProgram
+blufi_wechat/node_modules/
+blufi_wechat/miniprogram_npm/
+blufi_wechat/.tea/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+temp/
