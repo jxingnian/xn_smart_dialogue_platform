@@ -27,9 +27,6 @@
 #include "esp_mac.h"
 
 #include "mqtt_module.h"
-#include "mqtt_app_module.h"
-#include "mqtt_reg_module.h"
-#include "mqtt_heartbeat_module.h"
 #include "web_mqtt_manager.h"
 
 /* 日志 TAG */
@@ -43,18 +40,6 @@ static TickType_t                s_last_error_ts = 0; ///< 最近一次错误/�
 
 /* 若上层未指定 client_id，则使用该缓冲区生成一个基于 MAC 的默认 ID */
 static char s_client_id_buf[32];
-
-/* 应用模块注册表配置 */
-#define WEB_MQTT_APP_MAX_NUM         8            ///< 支持的应用模块最大数量
-#define WEB_MQTT_APP_SUFFIX_MAX_LEN  16           ///< 单个模块前缀最大长度
-
-typedef struct {
-    char                  suffix[WEB_MQTT_APP_SUFFIX_MAX_LEN]; ///< 模块 Topic 前缀
-    web_mqtt_app_msg_cb_t cb;                   ///< 模块消息回调
-} web_mqtt_app_entry_t;
-
-static web_mqtt_app_entry_t s_app_entries[WEB_MQTT_APP_MAX_NUM]; ///< 模块表
-static int                  s_app_entry_count = 0; ///< 已注册模块数量
 
 /**
  * @brief 统一更新状态并通知上层回调
@@ -96,70 +81,6 @@ static void web_mqtt_manager_ensure_client_id(void)
 }
 
 /**
- * @brief 在 MQTT 已连接时，为所有已注册应用模块订阅 Topic
- */
-static void web_mqtt_manager_subscribe_all_apps(void)
-{
-    if (s_mgr_cfg.base_topic == NULL) {            ///< 未配置基础 Topic
-        return;                                    ///< 直接返回
-    }
-
-    for (int i = 0; i < s_app_entry_count; ++i) {  ///< 遍历所有模块
-        char filter[256];                          ///< 订阅过滤字符串
-        snprintf(filter, sizeof(filter), "%s/%s/#", ///< base_topic/prefix/#
-                 s_mgr_cfg.base_topic,             ///< 基础 Topic
-                 s_app_entries[i].suffix);         ///< 模块前缀
-
-        (void)mqtt_module_subscribe(filter, 1);    ///< 订阅，忽略返回值
-    }
-}
-
-/**
- * @brief MQTT 底层消息回调：统一分发到各应用模块
- */
-static void web_mqtt_manager_on_mqtt_message(const char    *topic,
-                                             int            topic_len,
-                                             const uint8_t *payload,
-                                             int            payload_len)
-{
-    if (s_mgr_cfg.base_topic == NULL) {            ///< 未配置基础 Topic
-        return;                                    ///< 不做分发
-    }
-
-    for (int i = 0; i < s_app_entry_count; ++i) {  ///< 遍历模块表
-        char prefix[128];                          ///< 完整前缀缓冲区
-        int  n = snprintf(prefix, sizeof(prefix),  ///< 生成前缀字符串
-                          "%s/%s",               ///< base_topic/prefix
-                          s_mgr_cfg.base_topic,    ///< 基础 Topic
-                          s_app_entries[i].suffix);///< 模块前缀
-        if (n <= 0 || n >= (int)sizeof(prefix)) {  ///< 生成失败或溢出
-            continue;                              ///< 跳过本模块
-        }
-
-        int prefix_len = n;                        ///< 前缀长度
-        if (topic_len < prefix_len) {              ///< Topic 过短
-            continue;                              ///< 跳过
-        }
-
-        if (memcmp(topic, prefix, prefix_len) != 0) { ///< 前缀不匹配
-            continue;                              ///< 跳过
-        }
-
-        if (topic_len > prefix_len &&              ///< 有后续字符时
-            topic[prefix_len] != '/') {            ///< 要求分隔符为 '/'
-            continue;                              ///< 否则视为不匹配
-        }
-
-        if (s_app_entries[i].cb) {                 ///< 存在回调
-            (void)s_app_entries[i].cb(topic,       ///< 将消息转交模块
-                                       topic_len,
-                                       payload,
-                                       payload_len);
-        }
-    }
-}
-
-/**
  * @brief MQTT 模块事件回调
  *
  * 由 mqtt_module 在底层连接状态变化时调用，用于驱动管理器状态机。
@@ -171,8 +92,6 @@ static void web_mqtt_manager_on_mqtt_event(mqtt_module_event_t event)
         ESP_LOGI(TAG, "MQTT connected");          ///< 打印日志
         web_mqtt_manager_notify_state(WEB_MQTT_STATE_CONNECTED); ///< 更新为已连接
         s_last_error_ts = 0;                       ///< 清空错误时间戳
-        web_mqtt_manager_subscribe_all_apps();     ///< 为各模块订阅 Topic
-        mqtt_reg_module_on_connected();            ///< 触发一次注册查询
         break;                                     ///< 结束分支
 
     case MQTT_MODULE_EVENT_DISCONNECTED:           ///< 底层断开
@@ -282,21 +201,10 @@ esp_err_t web_mqtt_manager_init(const web_mqtt_manager_config_t *config)
     }
 
     mqtt_cfg.event_cb      = web_mqtt_manager_on_mqtt_event; ///< 绑定事件回调
-    mqtt_cfg.message_cb    = web_mqtt_manager_on_mqtt_message; ///< 绑定消息回调
+    mqtt_cfg.message_cb    = NULL;                 ///< 不需要消息回调
 
     /* 初始化底层 MQTT 模块 */
     esp_err_t ret = mqtt_module_init(&mqtt_cfg);   ///< 调用底层初始化
-    if (ret != ESP_OK) {                           ///< 初始化失败
-        return ret;                                 ///< 直接返回错误码
-    }
-
-    /* 初始化内部应用模块（设备注册 + 心跳） */
-    ret = mqtt_reg_module_init(&s_mgr_cfg);        ///< 初始化注册模块
-    if (ret != ESP_OK) {                           ///< 初始化失败
-        return ret;                                 ///< 直接返回错误码
-    }
-
-    ret = mqtt_heartbeat_module_init(&s_mgr_cfg);  ///< 初始化心跳模块
     if (ret != ESP_OK) {                           ///< 初始化失败
         return ret;                                 ///< 直接返回错误码
     }
@@ -326,51 +234,6 @@ esp_err_t web_mqtt_manager_init(const web_mqtt_manager_config_t *config)
     (void)mqtt_module_start();                     ///< 直接尝试连接一次
 
     return ESP_OK;                                 ///< 返回成功
-}
-
-esp_err_t web_mqtt_manager_register_app(const char *topic_suffix,
-                                        web_mqtt_app_msg_cb_t cb)
-{
-    if (topic_suffix == NULL || cb == NULL) {      ///< 参数不可为空
-        return ESP_ERR_INVALID_ARG;                ///< 返回参数错误
-    }
-
-    if (topic_suffix[0] == '\0') {                ///< 前缀不能为空串
-        return ESP_ERR_INVALID_ARG;                ///< 返回参数错误
-    }
-
-    if (s_app_entry_count >= WEB_MQTT_APP_MAX_NUM) { ///< 模块数量已达上限
-        return ESP_ERR_NO_MEM;                     ///< 返回内存不足
-    }
-
-    size_t len = strlen(topic_suffix);             ///< 计算前缀长度
-    if (len >= WEB_MQTT_APP_SUFFIX_MAX_LEN) {      ///< 超出可用空间
-        return ESP_ERR_INVALID_ARG;                ///< 返回参数错误
-    }
-
-    for (int i = 0; i < s_app_entry_count; ++i) {  ///< 查找是否已存在
-        if (strcmp(s_app_entries[i].suffix, topic_suffix) == 0) {
-            s_app_entries[i].cb = cb;              ///< 更新回调
-            return ESP_OK;                         ///< 返回成功
-        }
-    }
-
-    strcpy(s_app_entries[s_app_entry_count].suffix, topic_suffix); ///< 保存前缀
-    s_app_entries[s_app_entry_count].cb = cb;       ///< 保存回调
-    s_app_entry_count++;                            ///< 模块数量加一
-
-    /* 若 MQTT 已连接，则立即为该模块订阅一次 */
-    if (s_mgr_cfg.base_topic != NULL &&
-        (s_mgr_state == WEB_MQTT_STATE_CONNECTED ||
-         s_mgr_state == WEB_MQTT_STATE_READY)) {
-        char filter[256];                          ///< 订阅过滤字符串
-        snprintf(filter, sizeof(filter), "%s/%s/#", ///< base_topic/prefix/#
-                 s_mgr_cfg.base_topic,             ///< 基础 Topic
-                 topic_suffix);                    ///< 模块前缀
-        (void)mqtt_module_subscribe(filter, 1);    ///< 订阅，忽略返回值
-    }
-
-    return ESP_OK;                                  ///< 返回成功
 }
 
 const char *web_mqtt_manager_get_client_id(void)
