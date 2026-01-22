@@ -30,48 +30,54 @@ static void blufi_wifi_scan_callback(uint16_t ap_count, wifi_ap_record_t *ap_lis
     ESP_LOGI(TAG, "WiFi扫描完成，发送%d个AP信息", ap_count);
     
     if (ap_count == 0 || ap_list == NULL) {
-        // 发送空列表
+        // 如果没有扫描到或列表为空，发送空列表给手机
         esp_blufi_send_wifi_list(0, NULL);
         return;
     }
     
-    // 转换为 BluFi AP 记录格式
+    // 转换为 BluFi AP 记录格式所占用的内存
     esp_blufi_ap_record_t *blufi_ap_list = malloc(sizeof(esp_blufi_ap_record_t) * ap_count);
     if (blufi_ap_list == NULL) {
         ESP_LOGE(TAG, "分配内存失败");
         return;
     }
     
+    // 遍历转换每个AP信息
     for (int i = 0; i < ap_count; i++) {
-        // 复制 SSID，确保不包含结尾的 NULL
+        // 复制 SSID，确保不包含结尾的 NULL (如果长度恰好填满)
         size_t ssid_len = strlen((char*)ap_list[i].ssid);
+        // 限制SSID长度，防止溢出
         if (ssid_len > sizeof(blufi_ap_list[i].ssid) - 1) {
             ssid_len = sizeof(blufi_ap_list[i].ssid) - 1;
         }
         memcpy(blufi_ap_list[i].ssid, ap_list[i].ssid, ssid_len);
+        // 确保字符串结束符
         blufi_ap_list[i].ssid[ssid_len] = '\0';
         
+        // 复制信号强度
         blufi_ap_list[i].rssi = ap_list[i].rssi;
         
         ESP_LOGI(TAG, "  AP[%d]: SSID=\"%s\" (len=%d), RSSI=%d", 
                  i, blufi_ap_list[i].ssid, ssid_len, blufi_ap_list[i].rssi);
     }
     
-    // 发送WiFi列表
+    // 发送WiFi列表到手机端
     esp_blufi_send_wifi_list(ap_count, blufi_ap_list);
     
+    // 释放临时内存
     free(blufi_ap_list);
 }
 
-/* BluFi组件实例结构体 */
+/* BluFi组件实例结构体 definition */
 struct xn_blufi_s {
     char device_name[32];                   // 蓝牙设备名称
-    xn_wifi_manager_t *wifi_manager;        // WiFi管理器
-    bool ble_connected;                     // 蓝牙是否已连接
-    char pending_ssid[32];                  // 待连接的SSID
-    char pending_password[64];              // 待连接的密码
+    xn_wifi_manager_t *wifi_manager;        // WiFi管理器实例
+    bool ble_connected;                     // 蓝牙是否已连接标志
+    char pending_ssid[32];                  // 待连接的WiFi SSID缓存
+    char pending_password[64];              // 待连接的WiFi 密码缓存
 };
 
+// 全局实例指针，因为BluFi回调是全局的
 static xn_blufi_t *g_blufi_instance = NULL;
 
 /* 获取当前待连接的WiFi配置（内部使用） */
@@ -93,6 +99,7 @@ void xn_blufi_on_reset(int reason)
 void xn_blufi_on_sync(void)
 {
     ESP_LOGI(TAG, "NimBLE同步完成");
+    // 初始化BluFi的GATT profile
     esp_blufi_profile_init();
 }
 
@@ -100,7 +107,9 @@ void xn_blufi_on_sync(void)
 void xn_blufi_host_task(void *param)
 {
     ESP_LOGI(TAG, "NimBLE主机任务启动");
+    // 运行NimBLE事件循环，此函数不会返回
     nimble_port_run();
+    // 任务结束后清理资源
     nimble_port_freertos_deinit();
 }
 
@@ -110,12 +119,13 @@ static void blufi_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_param_
     xn_blufi_t *blufi = g_blufi_instance;
     if (blufi == NULL) return;
     
-    // 添加事件日志
+    // 添加事件日志，方便调试
     ESP_LOGI(TAG, "收到BluFi事件: %d", event);
     
     switch (event) {
         case ESP_BLUFI_EVENT_INIT_FINISH:
             ESP_LOGI(TAG, "BluFi初始化完成");
+            // 开启广播，等待连接
             esp_blufi_adv_start();
             break;
             
@@ -126,16 +136,19 @@ static void blufi_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_param_
         case ESP_BLUFI_EVENT_BLE_CONNECT:
             ESP_LOGI(TAG, "蓝牙已连接");
             blufi->ble_connected = true;
+            // 连接后停止广播
             esp_blufi_adv_stop();
             break;
             
         case ESP_BLUFI_EVENT_BLE_DISCONNECT:
             ESP_LOGI(TAG, "蓝牙断开连接");
             blufi->ble_connected = false;
+            // 断开后重新开启广播
             esp_blufi_adv_start();
             break;
             
         case ESP_BLUFI_EVENT_RECV_STA_SSID:
+            // 接收到手机发来的SSID
             strncpy(blufi->pending_ssid, (char*)param->sta_ssid.ssid, 
                    param->sta_ssid.ssid_len);
             blufi->pending_ssid[param->sta_ssid.ssid_len] = '\0';
@@ -143,6 +156,7 @@ static void blufi_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_param_
             break;
             
         case ESP_BLUFI_EVENT_RECV_STA_PASSWD:
+            // 接收到手机发来的密码
             strncpy(blufi->pending_password, (char*)param->sta_passwd.passwd,
                    param->sta_passwd.passwd_len);
             blufi->pending_password[param->sta_passwd.passwd_len] = '\0';
@@ -150,6 +164,7 @@ static void blufi_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_param_
             break;
             
         case ESP_BLUFI_EVENT_REQ_CONNECT_TO_AP:
+            // 手机请求连接WiFi
             ESP_LOGI(TAG, "请求连接WiFi");
             xn_wifi_manager_connect(blufi->wifi_manager, 
                                    blufi->pending_ssid, 
@@ -157,18 +172,20 @@ static void blufi_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_param_
             break;
             
         case ESP_BLUFI_EVENT_REQ_DISCONNECT_FROM_AP:
+            // 手机请求断开WiFi
             ESP_LOGI(TAG, "请求断开WiFi");
             xn_wifi_manager_disconnect(blufi->wifi_manager);
             break;
             
         case ESP_BLUFI_EVENT_GET_WIFI_STATUS: {
+            // 手机查询当前WiFi状态
             wifi_mode_t mode;
             esp_wifi_get_mode(&mode);
             
             xn_wifi_status_t status = xn_wifi_manager_get_status(blufi->wifi_manager);
             esp_blufi_extra_info_t info = {0};
             
-            // 如果已连接，获取当前连接的WiFi信息
+            // 如果已连接，获取当前连接的WiFi信息反馈给手机
             if (status == XN_WIFI_GOT_IP) {
                 wifi_config_t wifi_config;
                 if (esp_wifi_get_config(WIFI_IF_STA, &wifi_config) == ESP_OK) {
@@ -188,14 +205,16 @@ static void blufi_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_param_
         }
         
         case ESP_BLUFI_EVENT_GET_WIFI_LIST: {
+            // 手机请求扫描WiFi列表
             ESP_LOGI(TAG, "请求扫描WiFi");
             
-            // 注册扫描完成回调
+            // 注册扫描完成回调，扫描结果将在回调中发送给手机
             xn_blufi_wifi_scan(blufi, blufi_wifi_scan_callback);
             break;
         }
         
         case ESP_BLUFI_EVENT_RECV_CUSTOM_DATA: {
+            // 处理自定义数据
             ESP_LOGI(TAG, "收到自定义数据请求");
             
             if (param->custom_data.data_len > 0) {
@@ -221,13 +240,13 @@ static void blufi_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_param_
                         response[offset++] = count;  // 配置数量
                         
                         for (int i = 0; i < count; i++) {
-                            // SSID
+                            // 填入SSID
                             uint8_t ssid_len = strlen(configs[i].ssid);
                             response[offset++] = ssid_len;
                             memcpy(&response[offset], configs[i].ssid, ssid_len);
                             offset += ssid_len;
                             
-                            // 密码
+                            // 填入密码
                             uint8_t pwd_len = strlen(configs[i].password);
                             response[offset++] = pwd_len;
                             memcpy(&response[offset], configs[i].password, pwd_len);
@@ -243,7 +262,7 @@ static void blufi_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_param_
                         ESP_LOGI(TAG, "未找到存储的WiFi配置");
                     }
                     
-                    // 发送自定义数据响应
+                    // 发送自定义数据响应给手机
                     esp_blufi_send_custom_data(response, offset);
                 }
                 // 类型 0x02: 请求删除指定索引的WiFi配置
@@ -256,7 +275,7 @@ static void blufi_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_param_
                     // 构建响应数据：[类型(1字节), 状态(1字节)]
                     uint8_t response[2];
                     response[0] = 0x02;  // 类型：删除配置
-                    response[1] = (ret == ESP_OK) ? 0x00 : 0x01;  // 状态
+                    response[1] = (ret == ESP_OK) ? 0x00 : 0x01;  // 状态：00成功 01失败
                     
                     // 发送自定义数据响应
                     esp_blufi_send_custom_data(response, 2);
@@ -279,8 +298,8 @@ static void blufi_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_param_
 /* BluFi回调函数结构体 */
 static esp_blufi_callbacks_t blufi_callbacks = {
     .event_cb = blufi_event_callback,
-    .negotiate_data_handler = NULL,
-    .encrypt_func = NULL,
+    .negotiate_data_handler = NULL, // 不使用协商数据
+    .encrypt_func = NULL,           // 不使用加密（明文传输）
     .decrypt_func = NULL,
     .checksum_func = NULL,
 };
@@ -288,12 +307,14 @@ static esp_blufi_callbacks_t blufi_callbacks = {
 /* 创建BluFi实例 */
 xn_blufi_t* xn_blufi_create(const char *device_name)
 {
+    // 分配实例内存
     xn_blufi_t *blufi = malloc(sizeof(xn_blufi_t));
     if (blufi == NULL) {
         ESP_LOGE(TAG, "分配内存失败");
         return NULL;
     }
     
+    // 初始化结构体
     memset(blufi, 0, sizeof(xn_blufi_t));
     strncpy(blufi->device_name, device_name, sizeof(blufi->device_name) - 1);
     
@@ -313,9 +334,11 @@ xn_blufi_t* xn_blufi_create(const char *device_name)
 void xn_blufi_destroy(xn_blufi_t *blufi)
 {
     if (blufi) {
+        // 先销毁WiFi管理器
         if (blufi->wifi_manager) {
             xn_wifi_manager_destroy(blufi->wifi_manager);
         }
+        // 释放实例内存
         free(blufi);
         ESP_LOGI(TAG, "BluFi实例已销毁");
     }
@@ -328,10 +351,11 @@ esp_err_t xn_blufi_init(xn_blufi_t *blufi)
         return ESP_ERR_INVALID_ARG;
     }
     
+    // 保存全局实例，供回调使用
     g_blufi_instance = blufi;
     esp_err_t ret;
     
-    // 初始化存储层
+    // 初始化WiFi存储层
     ret = xn_wifi_storage_init();
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "初始化存储层失败");
@@ -345,7 +369,8 @@ esp_err_t xn_blufi_init(xn_blufi_t *blufi)
         return ret;
     }
     
-    // 释放蓝牙控制器内存给经典蓝牙
+    // 释放蓝牙控制器内存给经典蓝牙（如果不需要经典蓝牙，可以回收内存）
+    // 注意：这里使用的是释放经典蓝牙内存，保留BLE内存
     ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
     
     // 初始化蓝牙控制器
@@ -356,7 +381,7 @@ esp_err_t xn_blufi_init(xn_blufi_t *blufi)
         return ret;
     }
     
-    // 启用蓝牙控制器
+    // 启用蓝牙控制器，仅BLE模式
     ret = esp_bt_controller_enable(ESP_BT_MODE_BLE);
     if (ret) {
         ESP_LOGE(TAG, "启用蓝牙控制器失败: %s", esp_err_to_name(ret));
@@ -370,7 +395,7 @@ esp_err_t xn_blufi_init(xn_blufi_t *blufi)
         return ret;
     }
     
-    // 配置NimBLE主机
+    // 配置NimBLE主机参数和回调
     ble_hs_cfg.reset_cb = xn_blufi_on_reset;
     ble_hs_cfg.sync_cb = xn_blufi_on_sync;
     ble_hs_cfg.gatts_register_cb = esp_blufi_gatt_svr_register_cb;
@@ -383,14 +408,14 @@ esp_err_t xn_blufi_init(xn_blufi_t *blufi)
         return ESP_FAIL;
     }
     
-    // 设置设备名称
+    // 设置蓝牙广播名称
     ret = ble_svc_gap_device_name_set(blufi->device_name);
     if (ret != 0) {
         ESP_LOGE(TAG, "设置设备名称失败");
         return ESP_FAIL;
     }
     
-    // 初始化BluFi BTC层
+    // 初始化BluFi BTC层（Blufi控制层）
     esp_blufi_btc_init();
     
     // 注册BluFi回调
