@@ -20,13 +20,16 @@ static const char *TAG = "blufi_manager";
  *                          内部变量
  *===========================================================================*/
 
-static bool s_initialized = false;
-static bool s_running = false;
+static bool s_initialized = false;          ///< 初始化标志
+static bool s_running = false;              ///< 运行状态标志
 
 /*===========================================================================
  *                          命令事件处理
  *===========================================================================*/
 
+/**
+ * @brief XN事件总线命令回调
+ */
 static void cmd_event_handler(const xn_event_t *event, void *user_data)
 {
     switch (event->id) {
@@ -55,6 +58,7 @@ esp_err_t blufi_manager_init(void)
         return ESP_ERR_INVALID_STATE;
     }
     
+    // 订阅开始和停止命令
     xn_event_subscribe(XN_CMD_BLUFI_START, cmd_event_handler, NULL);
     xn_event_subscribe(XN_CMD_BLUFI_STOP, cmd_event_handler, NULL);
     
@@ -70,10 +74,12 @@ esp_err_t blufi_manager_deinit(void)
         return ESP_ERR_INVALID_STATE;
     }
     
+    // 确保已停止
     if (s_running) {
         blufi_manager_stop();
     }
     
+    // 取消订阅
     xn_event_unsubscribe_all(cmd_event_handler);
     
     s_initialized = false;
@@ -91,13 +97,20 @@ esp_err_t blufi_manager_start(void)
     
     if (s_running) {
         ESP_LOGW(TAG, "BluFi already running");
-        return ESP_OK;
+        return ESP_OK; // 已经运行则视为成功
     }
     
     // TODO: 在 menuconfig 启用蓝牙后，添加以下代码：
+    // 1. 初始化BT Controller
     // esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
     // esp_bt_controller_init(&bt_cfg);
     // esp_bt_controller_enable(ESP_BT_MODE_BLE);
+    
+    // 2. 初始化Bluedroid Host
+    // esp_bluedroid_init();
+    // esp_bluedroid_enable();
+    
+    // 3. 注册回调并启动Profile
     // esp_blufi_register_callbacks(&blufi_callbacks);
     // esp_blufi_profile_init();
     
@@ -105,6 +118,8 @@ esp_err_t blufi_manager_start(void)
     ESP_LOGW(TAG, "Please run: idf.py menuconfig -> Component config -> Bluetooth");
     
     s_running = true;
+    
+    // 模拟配网初始化完成
     xn_event_post(XN_EVT_BLUFI_INIT_DONE, XN_EVT_SRC_BLUFI);
     
     return ESP_OK;
@@ -115,6 +130,13 @@ esp_err_t blufi_manager_stop(void)
     if (!s_initialized || !s_running) {
         return ESP_ERR_INVALID_STATE;
     }
+    
+    // TODO: 释放蓝牙资源
+    // esp_blufi_profile_deinit();
+    // esp_bluedroid_disable();
+    // esp_bluedroid_deinit();
+    // esp_bt_controller_disable();
+    // esp_bt_controller_deinit();
     
     s_running = false;
     ESP_LOGI(TAG, "BluFi stopped");

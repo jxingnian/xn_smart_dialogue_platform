@@ -19,18 +19,23 @@ static const char *TAG = "wifi_manager";
  *                          内部变量
  *===========================================================================*/
 
-static bool s_initialized = false;
-static bool s_connected = false;
-static uint32_t s_ip_addr = 0;
-static EventGroupHandle_t s_wifi_event_group = NULL;
+static bool s_initialized = false;          ///< 初始化标志
+static bool s_connected = false;            ///< 物理层连接状态
+static uint32_t s_ip_addr = 0;              ///< 当前IP地址(0表示未获取)
+static EventGroupHandle_t s_wifi_event_group = NULL; ///< WiFi事件组(用于同步等待)
 
-#define WIFI_CONNECTED_BIT  BIT0
-#define WIFI_FAIL_BIT       BIT1
+#define WIFI_CONNECTED_BIT  BIT0            ///< 事件位：已连接并获取IP
+#define WIFI_FAIL_BIT       BIT1            ///< 事件位：连接失败
 
 /*===========================================================================
  *                          事件处理
  *===========================================================================*/
 
+/**
+ * @brief ESP-IDF 系统事件回调
+ * 
+ * 处理 WIFI_EVENT 和 IP_EVENT，并将其转换为 XN_EVENT 广播出去。
+ */
 static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                                int32_t event_id, void *event_data)
 {
@@ -39,6 +44,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
             case WIFI_EVENT_STA_START:
                 ESP_LOGI(TAG, "STA started");
                 xn_event_post(XN_EVT_WIFI_STA_START, XN_EVT_SRC_WIFI);
+                // 启动后立即尝试连接（使用保存的配置）
                 esp_wifi_connect();
                 break;
                 
@@ -59,13 +65,15 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                 s_connected = false;
                 s_ip_addr = 0;
                 
+                // 发布断开事件，附带原因码
                 xn_evt_wifi_disconnected_t data = {.reason = evt->reason};
                 xn_event_post_data(XN_EVT_WIFI_DISCONNECTED, XN_EVT_SRC_WIFI, 
                                    &data, sizeof(data));
                 
                 xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
                 
-                // 自动重连
+                // 收到断开事件后，自动尝试重连
+                // 注意：在实际产品中可能需要退避策略，避免频繁重连
                 esp_wifi_connect();
                 break;
             }
@@ -80,6 +88,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
             
             ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&event->ip_info.ip));
             
+            // 发布获取IP事件，附带IP信息
             xn_evt_wifi_got_ip_t data = {
                 .ip = event->ip_info.ip.addr,
                 .netmask = event->ip_info.netmask.addr,
@@ -101,6 +110,11 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
  *                          命令事件处理
  *===========================================================================*/
 
+/**
+ * @brief XN事件总线命令回调
+ * 
+ * 响应来自其他模块的控制命令（如CLI、BlueFi等发出的连接请求）。
+ */
 static void cmd_event_handler(const xn_event_t *event, void *user_data)
 {
     switch (event->id) {
@@ -134,15 +148,15 @@ esp_err_t wifi_manager_init(void)
         return ESP_ERR_NO_MEM;
     }
     
-    // 初始化网络接口
+    // 初始化网络接口层(Netif)
     ESP_ERROR_CHECK(esp_netif_init());
     esp_netif_create_default_wifi_sta();
     
-    // 初始化WiFi
+    // 初始化WiFi驱动，使用默认配置
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
     
-    // 注册事件处理
+    // 注册系统事件处理回调
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, 
                                                 wifi_event_handler, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, 
@@ -150,10 +164,11 @@ esp_err_t wifi_manager_init(void)
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_LOST_IP, 
                                                 wifi_event_handler, NULL));
     
-    // 订阅命令事件
+    // 订阅内部命令事件
     xn_event_subscribe(XN_CMD_WIFI_CONNECT, cmd_event_handler, NULL);
     xn_event_subscribe(XN_CMD_WIFI_DISCONNECT, cmd_event_handler, NULL);
     
+    // 设置为STA模式
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     
     s_initialized = true;
@@ -168,9 +183,11 @@ esp_err_t wifi_manager_deinit(void)
         return ESP_ERR_INVALID_STATE;
     }
     
+    // 取消订阅
     xn_event_unsubscribe(XN_CMD_WIFI_CONNECT, cmd_event_handler);
     xn_event_unsubscribe(XN_CMD_WIFI_DISCONNECT, cmd_event_handler);
     
+    // 注销系统事件
     esp_event_handler_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, wifi_event_handler);
     esp_event_handler_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, wifi_event_handler);
     esp_event_handler_unregister(IP_EVENT, IP_EVENT_STA_LOST_IP, wifi_event_handler);
@@ -198,6 +215,7 @@ esp_err_t wifi_manager_start(void)
         return ESP_ERR_INVALID_STATE;
     }
     
+    // 启动WiFi，底层驱动会自动加载NVS中的配置并尝试自动连接（如果在STA_START回调中调用了connect）
     return esp_wifi_start();
 }
 
@@ -226,8 +244,10 @@ esp_err_t wifi_manager_connect(const char *ssid, const char *password)
         strlcpy((char *)wifi_config.sta.password, password, sizeof(wifi_config.sta.password));
     }
     
+    // 设置WiFi配置，这会自动保存到NVS
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     
+    // 确保WiFi已启动
     return esp_wifi_start();
 }
 

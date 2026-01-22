@@ -18,6 +18,7 @@ static const char *TAG = "mqtt_manager";
  *===========================================================================*/
 
 #ifndef MQTT_BROKER_URI
+// 默认使用的 MQTT Broker (公共测试服务器)
 #define MQTT_BROKER_URI     "mqtt://broker.emqx.io:1883"
 #endif
 
@@ -25,14 +26,20 @@ static const char *TAG = "mqtt_manager";
  *                          内部变量
  *===========================================================================*/
 
-static bool s_initialized = false;
-static bool s_connected = false;
-static esp_mqtt_client_handle_t s_client = NULL;
+static bool s_initialized = false;              ///< 初始化标志
+static bool s_connected = false;                ///< 连接状态标志
+static esp_mqtt_client_handle_t s_client = NULL; ///< MQTT客户端句柄
 
 /*===========================================================================
  *                          事件处理
  *===========================================================================*/
 
+/**
+ * @brief ESP-IDF MQTT底层事件回调
+ * 
+ * 处理底层 MQTT Client 的各种事件（连接、断开、数据到达等），
+ * 并将其封装为 XN_EVENT 广播到事件总线。
+ */
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, 
                                int32_t event_id, void *event_data)
 {
@@ -48,6 +55,9 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
             ESP_LOGI(TAG, "Connected to MQTT broker");
             s_connected = true;
             xn_event_post(XN_EVT_MQTT_CONNECTED, XN_EVT_SRC_MQTT);
+            
+            // 连接成功后，可以根据需要自动订阅一些主题
+            // mqtt_manager_subscribe("device/+/command", 1);
             break;
             
         case MQTT_EVENT_DISCONNECTED:
@@ -69,6 +79,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
         case MQTT_EVENT_DATA: {
             ESP_LOGI(TAG, "Received data: topic=%.*s", event->topic_len, event->topic);
             
+            // 收到消息，封装后发布到事件总线
+            // 注意：event->data 不一定是 NULL 结尾的字符串，需要结合 data_len 使用
             xn_evt_mqtt_data_t data = {
                 .topic = event->topic,
                 .topic_len = event->topic_len,
@@ -82,6 +94,12 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
             
         case MQTT_EVENT_ERROR:
             ESP_LOGE(TAG, "MQTT error");
+            if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT) {
+                ESP_LOGE(TAG, "Last error code reported from esp-tls: 0x%x", event->error_handle->esp_tls_last_esp_err);
+                ESP_LOGE(TAG, "Last tls stack error number: 0x%x", event->error_handle->esp_tls_stack_err);
+                ESP_LOGE(TAG, "Last captured errno : %d (%s)",  event->error_handle->esp_transport_sock_errno,
+                         strerror(event->error_handle->esp_transport_sock_errno));
+            }
             xn_event_post(XN_EVT_MQTT_ERROR, XN_EVT_SRC_MQTT);
             break;
             
@@ -95,6 +113,9 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
  *                          命令事件处理
  *===========================================================================*/
 
+/**
+ * @brief XN事件总线命令回调
+ */
 static void cmd_event_handler(const xn_event_t *event, void *user_data)
 {
     switch (event->id) {
@@ -113,13 +134,21 @@ static void cmd_event_handler(const xn_event_t *event, void *user_data)
     }
 }
 
+/**
+ * @brief WiFi事件回调
+ * 
+ * 监听 WiFi 获取IP事件，以实现自动连接 MQTT。
+ */
 static void wifi_event_handler(const xn_event_t *event, void *user_data)
 {
     if (event->id == XN_EVT_WIFI_GOT_IP) {
         ESP_LOGI(TAG, "WiFi connected, starting MQTT...");
+        // WiFi就绪，启动MQTT连接
         mqtt_manager_connect();
     } else if (event->id == XN_EVT_WIFI_DISCONNECTED) {
         ESP_LOGI(TAG, "WiFi disconnected");
+        // WiFi断开，MQTT连接也会由于网络中断而断开
+        // 此处可选：主动 stop client
     }
 }
 
@@ -133,8 +162,10 @@ esp_err_t mqtt_manager_init(void)
         return ESP_ERR_INVALID_STATE;
     }
     
+    // 配置MQTT客户端
     esp_mqtt_client_config_t mqtt_cfg = {
         .broker.address.uri = MQTT_BROKER_URI,
+        // .session.keepalive = 60,
     };
     
     s_client = esp_mqtt_client_init(&mqtt_cfg);
@@ -143,11 +174,15 @@ esp_err_t mqtt_manager_init(void)
         return ESP_FAIL;
     }
     
+    // 注册底层MQTT事件
     esp_mqtt_client_register_event(s_client, ESP_EVENT_ANY_ID, 
                                    mqtt_event_handler, NULL);
     
+    // 订阅内部命令
     xn_event_subscribe(XN_CMD_MQTT_CONNECT, cmd_event_handler, NULL);
     xn_event_subscribe(XN_CMD_MQTT_DISCONNECT, cmd_event_handler, NULL);
+    
+    // 订阅WiFi事件(用于自动连接)
     xn_event_subscribe(XN_EVT_WIFI_GOT_IP, wifi_event_handler, NULL);
     xn_event_subscribe(XN_EVT_WIFI_DISCONNECTED, wifi_event_handler, NULL);
     
