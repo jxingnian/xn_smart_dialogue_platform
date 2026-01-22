@@ -11,12 +11,10 @@ idf_component_register(
         freertos
         esp_wifi
         esp_event
-        esp_log
+        log
         nvs_flash
         esp_netif
         mqtt
-        bt
         xn_event_bus
         xn_state_machine
-        xn_blufi
 )

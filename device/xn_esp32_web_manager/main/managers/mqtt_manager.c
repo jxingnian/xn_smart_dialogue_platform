@@ -39,7 +39,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
     esp_mqtt_event_handle_t event = event_data;
     
     switch ((esp_mqtt_event_id_t)event_id) {
-        case MQTT_EVENT_CONNECTING:
+        case MQTT_EVENT_BEFORE_CONNECT:
             ESP_LOGI(TAG, "Connecting to MQTT broker...");
             xn_event_post(XN_EVT_MQTT_CONNECTING, XN_EVT_SRC_MQTT);
             break;
@@ -69,7 +69,6 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
         case MQTT_EVENT_DATA: {
             ESP_LOGI(TAG, "Received data: topic=%.*s", event->topic_len, event->topic);
             
-            // 发布事件数据
             xn_evt_mqtt_data_t data = {
                 .topic = event->topic,
                 .topic_len = event->topic_len,
@@ -87,7 +86,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
             break;
             
         default:
-            ESP_LOGD(TAG, "Unhandled event id: %d", event->event_id);
+            ESP_LOGD(TAG, "Unhandled event id: %d", (int)event_id);
             break;
     }
 }
@@ -114,16 +113,13 @@ static void cmd_event_handler(const xn_event_t *event, void *user_data)
     }
 }
 
-/*
- * WiFi 事件处理 - 获取IP后自动连接MQTT
- */
 static void wifi_event_handler(const xn_event_t *event, void *user_data)
 {
     if (event->id == XN_EVT_WIFI_GOT_IP) {
         ESP_LOGI(TAG, "WiFi connected, starting MQTT...");
         mqtt_manager_connect();
     } else if (event->id == XN_EVT_WIFI_DISCONNECTED) {
-        ESP_LOGI(TAG, "WiFi disconnected, MQTT will auto-reconnect");
+        ESP_LOGI(TAG, "WiFi disconnected");
     }
 }
 
@@ -150,11 +146,8 @@ esp_err_t mqtt_manager_init(void)
     esp_mqtt_client_register_event(s_client, ESP_EVENT_ANY_ID, 
                                    mqtt_event_handler, NULL);
     
-    // 订阅命令事件
     xn_event_subscribe(XN_CMD_MQTT_CONNECT, cmd_event_handler, NULL);
     xn_event_subscribe(XN_CMD_MQTT_DISCONNECT, cmd_event_handler, NULL);
-    
-    // 订阅WiFi事件
     xn_event_subscribe(XN_EVT_WIFI_GOT_IP, wifi_event_handler, NULL);
     xn_event_subscribe(XN_EVT_WIFI_DISCONNECTED, wifi_event_handler, NULL);
     

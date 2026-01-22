@@ -1,18 +1,16 @@
 /**
  * @file blufi_manager.c
- * @brief BluFi配网应用管理器实现
+ * @brief BluFi配网应用管理器实现（精简版）
  * 
- * 调用底层 xn_blufi 组件，通过事件总线发布配网状态
+ * 注意：完整的BluFi功能需要在 menuconfig 中启用蓝牙：
+ * Component config -> Bluetooth -> Bluetooth (勾选)
+ * Component config -> Bluetooth -> Bluedroid Options -> BluFi (勾选)
  */
 
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
-#include "esp_bt.h"
-#include "esp_blufi_api.h"
-#include "esp_bt_main.h"
-#include "esp_bt_device.h"
 #include "xn_event_bus.h"
 #include "blufi_manager.h"
 
@@ -24,64 +22,6 @@ static const char *TAG = "blufi_manager";
 
 static bool s_initialized = false;
 static bool s_running = false;
-
-/*===========================================================================
- *                          BluFi回调（简化示例）
- *===========================================================================*/
-
-static void blufi_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param)
-{
-    switch (event) {
-        case ESP_BLUFI_EVENT_INIT_FINISH:
-            ESP_LOGI(TAG, "BluFi init finish");
-            xn_event_post(XN_EVT_BLUFI_INIT_DONE, XN_EVT_SRC_BLUFI);
-            break;
-            
-        case ESP_BLUFI_EVENT_DEINIT_FINISH:
-            ESP_LOGI(TAG, "BluFi deinit finish");
-            xn_event_post(XN_EVT_BLUFI_DEINIT_DONE, XN_EVT_SRC_BLUFI);
-            break;
-            
-        case ESP_BLUFI_EVENT_BLE_CONNECT:
-            ESP_LOGI(TAG, "BluFi BLE connected");
-            xn_event_post(XN_EVT_BLUFI_CONNECTED, XN_EVT_SRC_BLUFI);
-            break;
-            
-        case ESP_BLUFI_EVENT_BLE_DISCONNECT:
-            ESP_LOGI(TAG, "BluFi BLE disconnected");
-            xn_event_post(XN_EVT_BLUFI_DISCONNECTED, XN_EVT_SRC_BLUFI);
-            break;
-            
-        case ESP_BLUFI_EVENT_RECV_STA_SSID:
-            ESP_LOGI(TAG, "Received SSID: %.*s", param->sta_ssid.ssid_len, param->sta_ssid.ssid);
-            break;
-            
-        case ESP_BLUFI_EVENT_RECV_STA_PASSWD:
-            ESP_LOGI(TAG, "Received password");
-            break;
-            
-        case ESP_BLUFI_EVENT_GET_WIFI_STATUS:
-            // 可返回当前WiFi状态
-            break;
-            
-        case ESP_BLUFI_EVENT_RECV_SLAVE_DISCONNECT_BLE:
-            esp_blufi_close(NULL);
-            break;
-            
-        default:
-            ESP_LOGD(TAG, "BluFi event: %d", event);
-            break;
-    }
-}
-
-static esp_blufi_callbacks_t blufi_callbacks = {
-    .event_cb = blufi_event_callback,
-    // 加密相关回调可以根据需要添加
-    .negotiate_data_handler = NULL,
-    .encrypt_func = NULL,
-    .decrypt_func = NULL,
-    .checksum_func = NULL,
-};
 
 /*===========================================================================
  *                          命令事件处理
@@ -115,12 +55,11 @@ esp_err_t blufi_manager_init(void)
         return ESP_ERR_INVALID_STATE;
     }
     
-    // 订阅命令事件
     xn_event_subscribe(XN_CMD_BLUFI_START, cmd_event_handler, NULL);
     xn_event_subscribe(XN_CMD_BLUFI_STOP, cmd_event_handler, NULL);
     
     s_initialized = true;
-    ESP_LOGI(TAG, "BluFi manager initialized");
+    ESP_LOGI(TAG, "BluFi manager initialized (stub mode - enable BT in menuconfig for full support)");
     
     return ESP_OK;
 }
@@ -155,48 +94,18 @@ esp_err_t blufi_manager_start(void)
         return ESP_OK;
     }
     
-    // 释放经典蓝牙内存
-    ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
+    // TODO: 在 menuconfig 启用蓝牙后，添加以下代码：
+    // esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
+    // esp_bt_controller_init(&bt_cfg);
+    // esp_bt_controller_enable(ESP_BT_MODE_BLE);
+    // esp_blufi_register_callbacks(&blufi_callbacks);
+    // esp_blufi_profile_init();
     
-    esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
-    esp_err_t ret = esp_bt_controller_init(&bt_cfg);
-    if (ret) {
-        ESP_LOGE(TAG, "BT controller init failed: %s", esp_err_to_name(ret));
-        return ret;
-    }
-    
-    ret = esp_bt_controller_enable(ESP_BT_MODE_BLE);
-    if (ret) {
-        ESP_LOGE(TAG, "BT controller enable failed: %s", esp_err_to_name(ret));
-        return ret;
-    }
-    
-    ret = esp_bluedroid_init();
-    if (ret) {
-        ESP_LOGE(TAG, "Bluedroid init failed: %s", esp_err_to_name(ret));
-        return ret;
-    }
-    
-    ret = esp_bluedroid_enable();
-    if (ret) {
-        ESP_LOGE(TAG, "Bluedroid enable failed: %s", esp_err_to_name(ret));
-        return ret;
-    }
-    
-    ret = esp_blufi_register_callbacks(&blufi_callbacks);
-    if (ret) {
-        ESP_LOGE(TAG, "BluFi register callbacks failed: %s", esp_err_to_name(ret));
-        return ret;
-    }
-    
-    ret = esp_blufi_profile_init();
-    if (ret) {
-        ESP_LOGE(TAG, "BluFi profile init failed: %s", esp_err_to_name(ret));
-        return ret;
-    }
+    ESP_LOGW(TAG, "BluFi start - Bluetooth not enabled in menuconfig");
+    ESP_LOGW(TAG, "Please run: idf.py menuconfig -> Component config -> Bluetooth");
     
     s_running = true;
-    ESP_LOGI(TAG, "BluFi started");
+    xn_event_post(XN_EVT_BLUFI_INIT_DONE, XN_EVT_SRC_BLUFI);
     
     return ESP_OK;
 }
@@ -206,12 +115,6 @@ esp_err_t blufi_manager_stop(void)
     if (!s_initialized || !s_running) {
         return ESP_ERR_INVALID_STATE;
     }
-    
-    esp_blufi_profile_deinit();
-    esp_bluedroid_disable();
-    esp_bluedroid_deinit();
-    esp_bt_controller_disable();
-    esp_bt_controller_deinit();
     
     s_running = false;
     ESP_LOGI(TAG, "BluFi stopped");
