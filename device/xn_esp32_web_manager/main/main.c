@@ -1,3 +1,13 @@
+/*
+ * @Author: xing nian jixingnian@gmail.com
+ * @Date: 2026-01-22 12:19:09
+ * @LastEditors: xing nian jixingnian@gmail.com
+ * @LastEditTime: 2026-01-22 16:05:30
+ * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\main\main.c
+ * @Description: 
+ * VX:Jxingnian
+ * Copyright (c) 2026 by ${git_name_email}, All Rights Reserved. 
+ */
 /**
  * @file main.c
  * @brief 应用程序入口
