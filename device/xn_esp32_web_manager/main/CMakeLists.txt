@@ -1,3 +1,22 @@
-idf_component_register(SRCS "main.c" "app_blufi.c" 
-                       PRIV_REQUIRES xn_blufi xn_iot_manager_mqtt
-                       INCLUDE_DIRS "")
+idf_component_register(
+    SRCS 
+        "main.c"
+        "app_state_machine.c"
+        "managers/wifi_manager.c"
+        "managers/mqtt_manager.c"
+        "managers/blufi_manager.c"
+    INCLUDE_DIRS 
+        "."
+    REQUIRES 
+        freertos
+        esp_wifi
+        esp_event
+        esp_log
+        nvs_flash
+        esp_netif
+        mqtt
+        bt
+        xn_event_bus
+        xn_state_machine
+        xn_blufi
+)
