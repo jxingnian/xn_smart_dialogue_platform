@@ -150,14 +150,8 @@ static void on_request_wifi_status(xn_blufi_t *blufi)
 static void on_ble_disconnect(xn_blufi_t *blufi)
 {
     ESP_LOGI(TAG, "BluFi BLE disconnected");
-    // 检查WiFi是否已连接
-    if (wifi_manager_is_connected()) {
-        ESP_LOGI(TAG, "WiFi connected, exiting BluFi mode");
-        // 发送配网成功事件，退出配网模式
-        xn_event_post(XN_EVT_BLUFI_CONFIG_DONE, XN_EVT_SRC_BLUFI);
-    } else {
-        ESP_LOGI(TAG, "WiFi not connected, staying in BluFi mode (or restarting adv by component)");
-    }
+    // 发送配网结束事件，退出配网模式
+    xn_event_post(XN_EVT_BLUFI_CONFIG_DONE, XN_EVT_SRC_BLUFI);
 }
 
 // BluFi组件回调结构体

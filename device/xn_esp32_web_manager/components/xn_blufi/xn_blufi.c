@@ -80,8 +80,6 @@ static void blufi_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_param_
             blufi->callbacks.on_ble_disconnect(blufi);
         }
         
-        // 断开后重新开启广播，允许再次连接（除非上层随后调用了stop）
-        esp_blufi_adv_start();
         break;
 
     case ESP_BLUFI_EVENT_RECV_STA_SSID:
