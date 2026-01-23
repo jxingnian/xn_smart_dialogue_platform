@@ -1,3 +1,13 @@
+<!--
+ * @Author: xingnian jixingnian@gmail.com
+ * @Date: 2026-01-22 19:45:40
+ * @LastEditors: xingnian jixingnian@gmail.com
+ * @LastEditTime: 2026-01-23 13:35:23
+ * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\components\xn_blufi\README.md
+ * @Description: 
+ * VX:Jxingnian
+ * Copyright (c) 2026 by ${git_name_email}, All Rights Reserved. 
+-->
 # XN_BluFi 蓝牙配网组件
 
 ESP32-S3蓝牙配网组件，通过蓝牙配置WiFi连接。使用NimBLE低功耗蓝牙协议栈。

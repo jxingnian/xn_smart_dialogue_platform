@@ -21,4 +21,6 @@ idf_component_register(
         esp_driver_gpio
         xn_iot_manager_mqtt
         xn_blufi
+        xn_wifi
+        xn_storage
 )

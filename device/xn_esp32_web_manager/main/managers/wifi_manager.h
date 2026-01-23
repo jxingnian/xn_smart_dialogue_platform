@@ -2,30 +2,32 @@
  * @Author: xingnian jixingnian@gmail.com
  * @Date: 2026-01-22 19:45:40
  * @LastEditors: xingnian jixingnian@gmail.com
- * @LastEditTime: 2026-01-22 20:06:08
+ * @LastEditTime: 2026-01-23 13:55:00
  * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\main\managers\wifi_manager.h
- * @Description: WiFi应用管理器头文件 - 通过事件与其他模块通信
+ * @Description: WiFi应用管理器头文件
  * VX:Jxingnian
- * Copyright (c) 2026 by ${git_name_email}, All Rights Reserved. 
+ * Copyright (c) 2026 by xingnian, All Rights Reserved. 
  */
 
-#ifndef WIFI_MANAGER_H
-#define WIFI_MANAGER_H
+#ifndef WIFI_MANAGER_H // 防止头文件重复包含
+#define WIFI_MANAGER_H // 防止头文件重复包含
 
-#include "esp_err.h"
-#include <stdbool.h>
+#include "esp_err.h" // 包含ESP错误码定义
+#include <stdbool.h> // 包含布尔类型定义
+#include <stdint.h> // 包含标准整型定义
+#include "xn_wifi.h" // 引用xn_wifi中的回调定义
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#ifdef __cplusplus // 如果是C++编译器
+extern "C" { // 使用C链接约定
+#endif // 结束C++编译器判断
 
 /**
  * @brief 初始化WiFi管理器
  * 
- * - 创建事件组
- * - 初始化底层 Netif 和 WiFi Driver
- * - 注册默认事件处理函数
- * - 设置为 STA 模式
+ * - 初始化NVS存储
+ * - 创建xn_wifi实例
+ * - 注册内部状态回调
+ * - 订阅系统命令事件
  * 
  * @return esp_err_t 初始化结果
  */
@@ -34,71 +36,75 @@ esp_err_t wifi_manager_init(void);
 /**
  * @brief 反初始化WiFi管理器
  * 
- * - 停止 WiFi
- * - 注销事件处理函数
- * - 释放资源
+ * - 取消事件订阅
+ * - 销毁xn_wifi实例
  * 
  * @return esp_err_t 反初始化结果
  */
 esp_err_t wifi_manager_deinit(void);
 
 /**
- * @brief 启动WiFi连接
+ * @brief 启动WiFi管理器
  * 
- * 使用 NVS 中已保存的 SSID/Password 尝试连接。
- * 如果没有保存的配置，将无法连接成功。
+ * - 尝试连接最近一次保存的WiFi配置
  * 
  * @return esp_err_t 启动结果
  */
 esp_err_t wifi_manager_start(void);
 
 /**
- * @brief 停止WiFi连接
+ * @brief 停止WiFi管理器
  * 
- * 调用 esp_wifi_stop()，彻底关闭 WiFi 射频。
+ * - 断开当前连接
  * 
  * @return esp_err_t 停止结果
  */
 esp_err_t wifi_manager_stop(void);
 
 /**
- * @brief 使用指定凭据连接WiFi
+ * @brief 连接指定WiFi
  * 
- * 更新 WiFi 配置并立即启动连接。配置将自动保存到 NVS。
+ * - 保存SSID和密码到NVS
+ * - 调用底层连接接口
  * 
  * @param ssid WiFi名称
- * @param password WiFi密码（开放网络可为NULL或空串）
- * @return esp_err_t 连接请求提交结果
+ * @param password WiFi密码
+ * @return esp_err_t 连接请求结果
  */
 esp_err_t wifi_manager_connect(const char *ssid, const char *password);
 
 /**
- * @brief 断开WiFi连接
- * 
- * 仅断开当前连接，不关闭 WiFi 射频。
+ * @brief 断开当前WiFi连接
  * 
  * @return esp_err_t 断开请求结果
  */
 esp_err_t wifi_manager_disconnect(void);
 
 /**
- * @brief 检查WiFi是否已连接且获取到IP
+ * @brief 检查是否已连接并获取到IP
  * 
- * @return true 已连接且有IP
- * @return false 未连接或正在连接
+ * @return true 已连接且获取IP
+ * @return false 未连接或未获取IP
  */
 bool wifi_manager_is_connected(void);
 
 /**
  * @brief 获取当前IP地址
  * 
- * @return uint32_t IPv4地址（网络字节序）
+ * @return uint32_t IP地址（网络字节序或根据具体实现）
  */
 uint32_t wifi_manager_get_ip(void);
 
-#ifdef __cplusplus
+/**
+ * @brief 扫描附近WiFi
+ * 
+ * @param callback 扫描完成时的回调函数
+ * @return esp_err_t 扫描请求结果
+ */
+esp_err_t wifi_manager_scan(xn_wifi_scan_done_cb_t callback);
+
+#ifdef __cplusplus // 如果是C++编译器
 }
-#endif
+#endif // 结束C++编译器判断
 
-#endif /* WIFI_MANAGER_H */
-
+#endif // WIFI_MANAGER_H
