@@ -240,18 +240,16 @@ static void system_event_handler(const xn_event_t *event, void *user_data)
     switch (event->id) {
         case XN_EVT_WIFI_GOT_IP:
             // WiFi连接成功
-            ESP_LOGI(TAG, "WiFi Got IP, MQTT will connect automatically");
-            // 重置错误时间戳，使状态机立即尝试连接
-            if (s_mgr_state == MQTT_MANAGER_STATE_DISCONNECTED ||
-                s_mgr_state == MQTT_MANAGER_STATE_ERROR) {
-                s_last_error_ts = 0;
-            }
+            ESP_LOGI(TAG, "WiFi Got IP, MQTT manager start");
+            // 启动MQTT连接
+            mqtt_manager_start();
             break;
             
         case XN_EVT_WIFI_DISCONNECTED:
             // WiFi断开
-            ESP_LOGW(TAG, "WiFi Disconnected, MQTT will pause");
-            // 底层MQTT会自动检测到网络错误并进入重连等待
+            ESP_LOGW(TAG, "WiFi Disconnected, MQTT manager stop");
+            // 停止MQTT连接
+            mqtt_manager_stop();
             break;
             
         default:
@@ -311,7 +309,7 @@ esp_err_t mqtt_manager_init(const mqtt_manager_config_t *config)
     }
 
     // 初始化状态
-    s_mgr_state     = MQTT_MANAGER_STATE_DISCONNECTED;
+    s_mgr_state     = MQTT_MANAGER_STATE_IDLE;
     s_last_error_ts = 0;
 
     // 创建管理任务（仅创建一次）
@@ -337,13 +335,6 @@ esp_err_t mqtt_manager_init(const mqtt_manager_config_t *config)
 
     // 标记初始化完成
     s_initialized = true;
-
-    // 通知状态变更
-    mqtt_manager_notify_state(MQTT_MANAGER_STATE_DISCONNECTED);
-    
-    // 立即启动第一次连接尝试，不等待Task轮询
-    ESP_LOGI(TAG, "Start initial connection...");
-    (void)mqtt_module_start();
 
     ESP_LOGI(TAG, "MQTT manager initialized");
     return ESP_OK;
