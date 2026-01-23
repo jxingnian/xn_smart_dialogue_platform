@@ -127,6 +127,14 @@ esp_err_t wifi_manager_get_stored_config(uint8_t index, char *ssid, char *passwo
  */
 esp_err_t wifi_manager_delete_stored_config(uint8_t index);
 
+/**
+ * @brief 获取当前连接的SSID
+ * 
+ * @param ssid 输出缓冲区 (必须 >= 33字节)
+ * @return esp_err_t 成功返回ESP_OK，未连接返回错误
+ */
+esp_err_t wifi_manager_get_current_ssid(char *ssid);
+
 #ifdef __cplusplus // 如果是C++编译器
 }
 #endif // 结束C++编译器判断

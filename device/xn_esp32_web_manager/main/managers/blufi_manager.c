@@ -2,7 +2,7 @@
  * @Author: xingnian jixingnian@gmail.com
  * @Date: 2026-01-22 19:45:40
  * @LastEditors: xingnian jixingnian@gmail.com
- * @LastEditTime: 2026-01-23 15:50:32
+ * @LastEditTime: 2026-01-23 16:16:47
  * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\main\managers\blufi_manager.c
  * @Description: BluFi配网应用管理器实现 - 实现回调逻辑，解耦底层
  * VX:Jxingnian
@@ -189,10 +189,17 @@ static void system_event_handler(const xn_event_t *event, void *user_data)
         ESP_LOGI(TAG, "WiFi Connected (Got IP), reporting to BluFi...");
         
         // 发送报告给手机：连接成功
-        // 我们不知道SSID，但手机端知道它刚发的，或者我们去查 wifi_manager
-        // 为了简单，我们只发 Success
-        // 如果要严谨，可以调用 esp_wifi_get_config
-        xn_blufi_send_connect_report(true, NULL, 0);
+        // 尝试获取当前实际连接的SSID
+        char ssid[33] = {0};
+        if (wifi_manager_get_current_ssid(ssid) != ESP_OK) {
+            // 如果获取失败（理论上不应发生，因为已Got IP），可以保持空或尝试存储
+            // 这里留空，让 xn_blufi 决定（xn_blufi 已修改为允许 NULL 发送 success）
+            ssid[0] = '\0';
+        }
+
+        // 发送报告给手机：连接成功
+        // 带上真实的SSID
+        xn_blufi_send_connect_report(true, ssid[0] ? ssid : NULL, 0);
         
         // 延时一会后停止配网，给手机端一点时间接收报告
         // 实际工程中可能需要定时器，这里简单发个事件自我停止，或者让FSM控制

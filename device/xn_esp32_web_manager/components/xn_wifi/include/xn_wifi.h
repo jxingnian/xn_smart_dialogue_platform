@@ -111,6 +111,15 @@ xn_wifi_status_t xn_wifi_get_status(xn_wifi_t *wifi); // 获取WiFi状态函数�
  */
 void xn_wifi_register_status_cb(xn_wifi_t *wifi, xn_wifi_status_cb_t callback); // 注册状态回调函数声明
 
+/**
+ * @brief 获取当前连接的SSID
+ * 
+ * @param wifi WiFi实例指针
+ * @param ssid 输出缓冲区 (必须 >= 33字节)
+ * @return esp_err_t 成功返回ESP_OK，未连接返回错误
+ */
+esp_err_t xn_wifi_get_current_ssid(xn_wifi_t *wifi, char *ssid);
+
 #ifdef __cplusplus // 如果是C++编译器
 }
 #endif // 结束C++编译器判断

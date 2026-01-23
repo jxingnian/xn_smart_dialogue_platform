@@ -364,3 +364,10 @@ esp_err_t wifi_manager_delete_stored_config(uint8_t index)
     
     return ESP_OK;
 }
+
+// 获取当前连接的SSID接口
+esp_err_t wifi_manager_get_current_ssid(char *ssid)
+{
+    if (!s_initialized || !s_wifi_instance) return ESP_ERR_INVALID_STATE;
+    return xn_wifi_get_current_ssid(s_wifi_instance, ssid);
+}

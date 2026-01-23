@@ -222,3 +222,23 @@ void xn_wifi_register_status_cb(xn_wifi_t *wifi, xn_wifi_status_cb_t callback)
 {
     if (wifi) wifi->status_callback = callback; // 保存状态回调
 }
+
+// 获取当前连接的SSID
+esp_err_t xn_wifi_get_current_ssid(xn_wifi_t *wifi, char *ssid)
+{
+    if (wifi == NULL || ssid == NULL) return ESP_ERR_INVALID_ARG;
+    
+    // 如果没有IP或未连接，返回错误
+    if (wifi->status != XN_WIFI_GOT_IP && wifi->status != XN_WIFI_CONNECTED) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    wifi_config_t conf;
+    esp_err_t ret = esp_wifi_get_config(WIFI_IF_STA, &conf);
+    if (ret == ESP_OK) {
+        // 直接从驱动配置中读取
+        strncpy(ssid, (char*)conf.sta.ssid, 32);
+        ssid[32] = '\0';
+    }
+    return ret;
+}
