@@ -60,6 +60,12 @@ typedef struct {
      */
     void (*on_recv_custom_data)(xn_blufi_t *blufi, uint8_t *data, size_t len);
 
+    /**
+     * @brief 手机请求获取WiFi状态 回调
+     * @param blufi 实例指针
+     */
+    void (*on_request_wifi_status)(xn_blufi_t *blufi);
+
 } xn_blufi_callbacks_t; // BluFi回调结构体类型定义
 
 /**

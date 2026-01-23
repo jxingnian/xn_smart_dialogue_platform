@@ -288,3 +288,79 @@ esp_err_t wifi_manager_scan(xn_wifi_scan_done_cb_t callback)
     if (!s_initialized) return ESP_ERR_INVALID_STATE;
     return xn_wifi_scan(s_wifi_instance, callback);
 }
+
+// 获取存储的WiFi配置数量
+uint8_t wifi_manager_get_stored_configs_count(void)
+{
+    uint8_t count = 0;
+    xn_storage_get_u8(NVS_KEY_WIFI_COUNT, &count);
+    return count;
+}
+
+// 获取指定索引的WiFi配置
+esp_err_t wifi_manager_get_stored_config(uint8_t index, char *ssid, char *password)
+{
+    uint8_t count = wifi_manager_get_stored_configs_count();
+    if (index >= count) return ESP_ERR_INVALID_ARG;
+
+    char key[32];
+    size_t len;
+    
+    // 读取SSID
+    snprintf(key, sizeof(key), "%s%d", NVS_KEY_PREFIX_SSID, index);
+    len = 33; // Max SSID len + 1
+    if (xn_storage_get_str(key, ssid, &len) != ESP_OK) return ESP_FAIL;
+    
+    // 读取Password
+    snprintf(key, sizeof(key), "%s%d", NVS_KEY_PREFIX_PWD, index);
+    len = 65; // Max PWD len + 1
+    if (xn_storage_get_str(key, password, &len) != ESP_OK) {
+        // 如果密码读取失败（可能没有密码），设置为空字符串
+        if (password) password[0] = '\0';
+    }
+
+    return ESP_OK;
+}
+
+// 删除指定索引的WiFi配置
+esp_err_t wifi_manager_delete_stored_config(uint8_t index)
+{
+    uint8_t count = wifi_manager_get_stored_configs_count();
+    if (index >= count) return ESP_ERR_INVALID_ARG;
+    
+    // 简单的删除逻辑：如果是最后一个，直接减count；如果不是，移动后面的向前填补
+    // 这里为了实现方便，我们只做简单的尾部删除支持，或者支持中间删除但需要移动数据
+    
+    // 实现移动逻辑
+    char key_src[32], key_dst[32];
+    char val_buf[65];
+    size_t len;
+    
+    for (int i = index; i < count - 1; i++) {
+        // 移动SSID
+        snprintf(key_src, sizeof(key_src), "%s%d", NVS_KEY_PREFIX_SSID, i + 1);
+        len = sizeof(val_buf);
+        if (xn_storage_get_str(key_src, val_buf, &len) == ESP_OK) {
+            snprintf(key_dst, sizeof(key_dst), "%s%d", NVS_KEY_PREFIX_SSID, i);
+            xn_storage_set_str(key_dst, val_buf);
+        }
+        
+        // 移动Password
+        snprintf(key_src, sizeof(key_src), "%s%d", NVS_KEY_PREFIX_PWD, i + 1);
+        len = sizeof(val_buf);
+        if (xn_storage_get_str(key_src, val_buf, &len) == ESP_OK) {
+            snprintf(key_dst, sizeof(key_dst), "%s%d", NVS_KEY_PREFIX_PWD, i);
+            xn_storage_set_str(key_dst, val_buf);
+        } else {
+             // 如果源没有密码（空），也要把目的置空
+             snprintf(key_dst, sizeof(key_dst), "%s%d", NVS_KEY_PREFIX_PWD, i);
+             xn_storage_set_str(key_dst, "");
+        }
+    }
+    
+    // 更新数量
+    count--;
+    xn_storage_set_u8(NVS_KEY_WIFI_COUNT, count);
+    
+    return ESP_OK;
+}

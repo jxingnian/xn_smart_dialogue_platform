@@ -78,9 +78,72 @@ static void on_scan_request(xn_blufi_t *blufi)
 static void on_recv_custom_data(xn_blufi_t *blufi, uint8_t *data, size_t len)
 {
     ESP_LOGI(TAG, "BluFi received custom data len=%d", len);
-    // 这里可以处理自定义协议，比如查询设备状态、删除存储的WiFi等
-    // 之前耦合的逻辑中，这里处理了WiFi列表查询。为了保持功能，这里应该转发给WiFi Manager或直接调用
-    // 但为了简洁，暂未实现复杂逻辑，仅预留接口。
+    if (len < 1) return;
+
+    uint8_t type = data[0];
+    
+    if (type == 0x01) { // GET stored configs
+        ESP_LOGI(TAG, "Custom Request: Get Stored Configs");
+        uint8_t count = wifi_manager_get_stored_configs_count();
+        
+        // 构建响应：[0x01(type), 0x00(status), count, (ssid_len, ssid, pwd_len, pwd)...]
+        // 预估最大长度：3 + 10 * (1+32+1+64) = ~1000 bytes. 动态分配或使用较大buffer
+        // 这里只是简单示例，注意栈溢出，用 heap
+        uint8_t *resp = malloc(1024);
+        if (!resp) return;
+
+        int offset = 0;
+        resp[offset++] = 0x01; // Type
+        resp[offset++] = 0x00; // Status OK
+        resp[offset++] = count; // Count
+
+        char ssid[33], pwd[65];
+        for (int i = 0; i < count; i++) {
+            if (wifi_manager_get_stored_config(i, ssid, pwd) == ESP_OK) {
+                // SSID
+                size_t s_len = strlen(ssid);
+                resp[offset++] = (uint8_t)s_len;
+                memcpy(resp + offset, ssid, s_len);
+                offset += s_len;
+                
+                // Password
+                size_t p_len = strlen(pwd);
+                resp[offset++] = (uint8_t)p_len;
+                memcpy(resp + offset, pwd, p_len);
+                offset += p_len;
+                
+                if (offset > 1000) break; // 防止溢出
+            }
+        }
+        
+        xn_blufi_send_custom_data(resp, offset);
+        free(resp);
+
+    } else if (type == 0x02) { // DEL stored config
+        if (len < 2) return;
+        uint8_t index = data[1];
+        ESP_LOGI(TAG, "Custom Request: Delete Config Index %d", index);
+        
+        esp_err_t ret = wifi_manager_delete_stored_config(index);
+        
+        // 响应：[0x02(type), status]
+        uint8_t resp[2];
+        resp[0] = 0x02;
+        resp[1] = (ret == ESP_OK) ? 0x00 : 0x01;
+        
+        xn_blufi_send_custom_data(resp, 2);
+    }
+}
+
+// 收到WiFi状态请求回调
+static void on_request_wifi_status(xn_blufi_t *blufi)
+{
+    ESP_LOGI(TAG, "BluFi requested wifi status");
+    // 获取当前状态
+    bool connected = wifi_manager_is_connected();
+    // 理想情况下 wifi_manager 应该提供 get_current_ssid()，这里暂时传 NULL
+    // 如果 connected=true, xn_blufi_send_connect_report 会发送 SUCCESS
+    xn_blufi_send_connect_report(connected, NULL, 0);
 }
 
 // BluFi组件回调结构体
@@ -90,6 +153,7 @@ static xn_blufi_callbacks_t s_blufi_callbacks = {
     .on_disconnect_request = on_disconnect_request,
     .on_scan_request = on_scan_request,
     .on_recv_custom_data = on_recv_custom_data,
+    .on_request_wifi_status = on_request_wifi_status,
 };
 
 /*===========================================================================

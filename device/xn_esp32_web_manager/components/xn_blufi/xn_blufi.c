@@ -106,8 +106,10 @@ static void blufi_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_param_
         }
         break;
     case ESP_BLUFI_EVENT_GET_WIFI_STATUS:
-        // 此事件通常需要同步返回，但解耦后较难同步，可由应用层在连接状态变化时主动推送Update事件
-        // 或者此处暂不处理，依赖主动推送 Report
+        // 手机请求查询当前WiFi状态
+        if (blufi->callbacks.on_request_wifi_status) {
+            blufi->callbacks.on_request_wifi_status(blufi);
+        }
         break;
     default:
         break;

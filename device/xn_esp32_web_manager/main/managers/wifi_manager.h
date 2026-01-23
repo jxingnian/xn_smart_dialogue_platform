@@ -103,6 +103,30 @@ uint32_t wifi_manager_get_ip(void);
  */
 esp_err_t wifi_manager_scan(xn_wifi_scan_done_cb_t callback);
 
+/**
+ * @brief 获取存储的WiFi配置数量
+ * @return uint8_t 数量
+ */
+uint8_t wifi_manager_get_stored_configs_count(void);
+
+/**
+ * @brief 获取指定索引的WiFi配置
+ * 
+ * @param index 索引 (0 ~ count-1)
+ * @param ssid输出缓冲区 (>=33字节)
+ * @param password输出缓冲区 (>=65字节)
+ * @return esp_err_t 成功返回ESP_OK
+ */
+esp_err_t wifi_manager_get_stored_config(uint8_t index, char *ssid, char *password);
+
+/**
+ * @brief 删除指定索引的WiFi配置
+ * 
+ * @param index 索引
+ * @return esp_err_t 成功返回ESP_OK
+ */
+esp_err_t wifi_manager_delete_stored_config(uint8_t index);
+
 #ifdef __cplusplus // 如果是C++编译器
 }
 #endif // 结束C++编译器判断
