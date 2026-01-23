@@ -1,13 +1,12 @@
 /*
- * @Author: 星年 jixingnian@gmail.com
- * @Date: 2025-01-15
+ * @Author: xingnian jixingnian@gmail.com
+ * @Date: 2026-01-22 19:45:40
+ * @LastEditors: xingnian jixingnian@gmail.com
+ * @LastEditTime: 2026-01-22 20:06:08
+ * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\components\xn_blufi\include\xn_wifi_storage.h
  * @Description: WiFi配置存储层 - 头文件
- * 
- * 功能说明：
- * 1. 负责WiFi配置的持久化存储，使用ESP-IDF的NVS组件
- * 2. 支持存储多个WiFi配置（SSID和密码）
- * 3. 提供保存、加载、删除配置的接口
- * 4. 自动管理存储空间，支持简单的配置轮换
+ * VX:Jxingnian
+ * Copyright (c) 2026 by ${git_name_email}, All Rights Reserved. 
  */
 
 #ifndef XN_WIFI_STORAGE_H

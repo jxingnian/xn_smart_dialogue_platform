@@ -1,7 +1,12 @@
 /*
- * @Author: 星年 jixingnian@gmail.com
- * @Date: 2025-01-15
- * @Description: BluFi蓝牙配网组件 - 实现文件（重构版）
+ * @Author: xingnian jixingnian@gmail.com
+ * @Date: 2026-01-22 19:45:40
+ * @LastEditors: xingnian jixingnian@gmail.com
+ * @LastEditTime: 2026-01-22 20:06:08
+ * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\components\xn_blufi\xn_blufi.c
+ * @Description: BluFi蓝牙配网组件 - 实现基本配网流程
+ * VX:Jxingnian
+ * Copyright (c) 2026 by ${git_name_email}, All Rights Reserved. 
  */
 
 #include "xn_blufi.h"
@@ -550,3 +555,4 @@ bool xn_blufi_is_ble_connected(xn_blufi_t *blufi)
     }
     return blufi->ble_connected;
 }
+

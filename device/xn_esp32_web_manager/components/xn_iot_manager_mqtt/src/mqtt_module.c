@@ -1,14 +1,12 @@
 /*
- * @Author: 星年 jixingnian@gmail.com
- * @Date: 2025-01-15
- * @Description: MQTT 模块实现（封装 esp-mqtt 客户端）
- * 
- * 仅负责：
- *  - 根据配置创建 MQTT 客户端；
- *  - 启动/停止客户端；
- *  - 将底层事件转换为简单的 mqtt_module_event_t 上报给上层。
- * 
- * 不直接处理业务 Topic，由上层管理器决定订阅/发布策略。
+ * @Author: xingnian jixingnian@gmail.com
+ * @Date: 2026-01-22 19:45:40
+ * @LastEditors: xingnian jixingnian@gmail.com
+ * @LastEditTime: 2026-01-22 20:06:08
+ * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\components\xn_iot_manager_mqtt\src\mqtt_module.c
+ * @Description: MQTT 模块实现 - 封装 esp-mqtt 客户端
+ * VX:Jxingnian
+ * Copyright (c) 2026 by ${git_name_email}, All Rights Reserved. 
  */
 
 #include <string.h>

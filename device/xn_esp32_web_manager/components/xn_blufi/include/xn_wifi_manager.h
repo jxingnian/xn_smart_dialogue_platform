@@ -1,12 +1,12 @@
 /*
- * @Author: 星年 jixingnian@gmail.com
- * @Date: 2025-01-15
+ * @Author: xingnian jixingnian@gmail.com
+ * @Date: 2026-01-22 19:45:40
+ * @LastEditors: xingnian jixingnian@gmail.com
+ * @LastEditTime: 2026-01-22 20:06:08
+ * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\components\xn_blufi\include\xn_wifi_manager.h
  * @Description: WiFi管理层 - 头文件
- * 
- * 功能说明：
- * 1. 负责WiFi的初始化、连接、断开和扫描操作
- * 2. 管理WiFi状态机和自动重连逻辑
- * 3. 处理WiFi事件（如连接成功、断开、获取IP）并通知上层
+ * VX:Jxingnian
+ * Copyright (c) 2026 by ${git_name_email}, All Rights Reserved. 
  */
 
 #ifndef XN_WIFI_MANAGER_H

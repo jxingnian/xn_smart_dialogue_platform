@@ -1,13 +1,12 @@
-/**
- * @file blufi_manager.h
- * @brief BluFi配网应用管理器 - 通过事件与其他模块通信
- * 
- * 负责管理 ESP32 的蓝牙配网流程。
- * 功能包括：
- * - 启动/停止蓝牙控制器
- * - 响应 BluFi 配网事件
- * - 将接收到的 WiFi 配置写入 NVS
- * - 发布配网完成事件
+/*
+ * @Author: xingnian jixingnian@gmail.com
+ * @Date: 2026-01-22 19:45:40
+ * @LastEditors: xingnian jixingnian@gmail.com
+ * @LastEditTime: 2026-01-22 20:06:08
+ * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\main\managers\blufi_manager.h
+ * @Description: BluFi配网应用管理器头文件 - 通过事件与其他模块通信
+ * VX:Jxingnian
+ * Copyright (c) 2026 by ${git_name_email}, All Rights Reserved. 
  */
 
 #ifndef BLUFI_MANAGER_H
@@ -74,3 +73,4 @@ bool blufi_manager_is_running(void);
 #endif
 
 #endif /* BLUFI_MANAGER_H */
+

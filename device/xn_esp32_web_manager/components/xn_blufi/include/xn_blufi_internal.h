@@ -1,7 +1,12 @@
 /*
- * @Author: 星年 jixingnian@gmail.com
- * @Date: 2025-01-14
+ * @Author: xingnian jixingnian@gmail.com
+ * @Date: 2026-01-22 19:45:40
+ * @LastEditors: xingnian jixingnian@gmail.com
+ * @LastEditTime: 2026-01-22 20:06:08
+ * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\components\xn_blufi\include\xn_blufi_internal.h
  * @Description: BluFi内部头文件 - NimBLE相关函数声明
+ * VX:Jxingnian
+ * Copyright (c) 2026 by ${git_name_email}, All Rights Reserved. 
  */
 
 #ifndef XN_BLUFI_INTERNAL_H

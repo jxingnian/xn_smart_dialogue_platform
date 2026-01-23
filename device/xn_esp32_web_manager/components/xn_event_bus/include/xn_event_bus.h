@@ -1,14 +1,12 @@
-/**
- * @file xn_event_bus.h
- * @brief 事件总线核心API - 通用可移植组件
- * 
- * 此组件提供了一个轻量级的发布-订阅（Pub/Sub）事件机制。
- * 支持同步和异步事件分发，支持带数据和不带数据的事件。
- * 核心功能包括：
- * - 初始化和反初始化事件总线
- * - 发布事件（Publish）
- * - 订阅事件（Subscribe）
- * - 取消订阅（Unsubscribe）
+/*
+ * @Author: xingnian jixingnian@gmail.com
+ * @Date: 2026-01-22 19:45:40
+ * @LastEditors: xingnian jixingnian@gmail.com
+ * @LastEditTime: 2026-01-22 20:06:08
+ * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\components\xn_event_bus\include\xn_event_bus.h
+ * @Description: 事件总线核心API - 通用可移植组件
+ * VX:Jxingnian
+ * Copyright (c) 2026 by ${git_name_email}, All Rights Reserved. 
  */
 
 #ifndef XN_EVENT_BUS_H
@@ -204,3 +202,4 @@ uint32_t xn_event_pending_count(void);
 #endif
 
 #endif /* XN_EVENT_BUS_H */
+

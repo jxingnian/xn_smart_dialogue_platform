@@ -1,6 +1,12 @@
-/**
- * @file xn_event_bus.c
- * @brief 事件总线实现
+/*
+ * @Author: xingnian jixingnian@gmail.com
+ * @Date: 2026-01-22 19:45:40
+ * @LastEditors: xingnian jixingnian@gmail.com
+ * @LastEditTime: 2026-01-22 20:06:08
+ * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\components\xn_event_bus\src\xn_event_bus.c
+ * @Description: 事件总线实现 - 提供Pub/Sub机制
+ * VX:Jxingnian
+ * Copyright (c) 2026 by ${git_name_email}, All Rights Reserved. 
  */
 
 #include <string.h>
@@ -105,11 +111,13 @@ static void dispatcher_task(void *arg)
 {
     xn_event_t event;
     
+    // 打印任务启动日志
     ESP_LOGI(TAG, "Dispatcher task started");
     
     while (1) {
         // 阻塞等待队列中有新事件
         if (xQueueReceive(s_bus.event_queue, &event, portMAX_DELAY) == pdTRUE) {
+            // 分发事件
             dispatch_event(&event);
         }
     }
@@ -122,6 +130,7 @@ static void dispatcher_task(void *arg)
 /* 初始化事件总线 */
 esp_err_t xn_event_bus_init(void)
 {
+    // 检查是否已初始化
     if (s_bus.initialized) {
         ESP_LOGW(TAG, "Already initialized");
         return ESP_ERR_INVALID_STATE;
@@ -217,9 +226,11 @@ esp_err_t xn_event_bus_deinit(void)
 /* 发布事件（异步） */
 esp_err_t xn_event_publish(const xn_event_t *event)
 {
+    // 检查初始化状态
     if (!s_bus.initialized) {
         return ESP_ERR_INVALID_STATE;
     }
+    // 检查参数
     if (event == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -251,9 +262,11 @@ esp_err_t xn_event_publish(const xn_event_t *event)
 /* 发布事件（同步） */
 esp_err_t xn_event_publish_sync(const xn_event_t *event)
 {
+    // 检查初始化状态
     if (!s_bus.initialized) {
         return ESP_ERR_INVALID_STATE;
     }
+    // 检查参数
     if (event == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -314,14 +327,7 @@ esp_err_t xn_event_post_data(uint16_t event_id, uint16_t source,
     esp_err_t ret = xn_event_publish(&event);
     if (ret != ESP_OK) {
         // 如果发布失败（例如队列满），需要手动释放刚才申请的内存
-        // 注意：xn_event_publish内部已有类似逻辑，但在本函数中我们手动处理更安全
-        // 实际上 xn_event_publish如果失败，它不负责释放传入的指针指向的内存，除非它明确接管了所有权
-        // 修改后的 xn_event_publish 在失败时会处理 auto_free，所以这里不需要重复free?
-        // 我们检查一下 xn_event_publish 的实现：
-        // if (xQueueSend(...) != pdTRUE) { ... if (evt_copy.auto_free) free(evt_copy.data); ... }
-        // 是的，上面已经添加了释放逻辑，所以这里不需要额外释放，除了返回值检查。
-        // 但为了代码健壮性，保持当前逻辑即可，注意不要double free。
-        // 实际上 xn_event_publish 如果返回失败，意味着所有权没交出去。
+        // 注意：xn_event_publish内部已有释放逻辑，这里不需要重复
     }
     return ret;
 }
@@ -330,13 +336,16 @@ esp_err_t xn_event_post_data(uint16_t event_id, uint16_t source,
 esp_err_t xn_event_subscribe(uint16_t event_id, xn_event_handler_t handler, 
                               void *user_data)
 {
+    // 检查初始化状态
     if (!s_bus.initialized) {
         return ESP_ERR_INVALID_STATE;
     }
+    // 检查参数
     if (handler == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
     
+    // 分配新的订阅者节点
     subscriber_node_t *new_node = malloc(sizeof(subscriber_node_t));
     if (new_node == NULL) {
         return ESP_ERR_NO_MEM;
@@ -346,7 +355,7 @@ esp_err_t xn_event_subscribe(uint16_t event_id, xn_event_handler_t handler,
     new_node->handler = handler;
     new_node->user_data = user_data;
     
-    // 头插法插入链表
+    // 头插法插入链表，需加锁保护
     xSemaphoreTake(s_bus.subscriber_mutex, portMAX_DELAY);
     new_node->next = s_bus.subscribers;
     s_bus.subscribers = new_node;
@@ -360,6 +369,7 @@ esp_err_t xn_event_subscribe(uint16_t event_id, xn_event_handler_t handler,
 /* 取消订阅 */
 esp_err_t xn_event_unsubscribe(uint16_t event_id, xn_event_handler_t handler)
 {
+    // 检查初始化状态
     if (!s_bus.initialized) {
         return ESP_ERR_INVALID_STATE;
     }
@@ -394,6 +404,7 @@ esp_err_t xn_event_unsubscribe(uint16_t event_id, xn_event_handler_t handler)
 /* 取消handler的所有订阅 */
 esp_err_t xn_event_unsubscribe_all(xn_event_handler_t handler)
 {
+    // 检查初始化状态
     if (!s_bus.initialized) {
         return ESP_ERR_INVALID_STATE;
     }
@@ -431,5 +442,8 @@ uint32_t xn_event_pending_count(void)
     if (!s_bus.initialized) {
         return 0;
     }
+    
+    // 返回队列中消息数量
     return uxQueueMessagesWaiting(s_bus.event_queue);
 }
+

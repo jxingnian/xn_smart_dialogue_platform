@@ -1,13 +1,12 @@
 /*
- * @Author: 星年 jixingnian@gmail.com
- * @Date: 2025-01-14
+ * @Author: xingnian jixingnian@gmail.com
+ * @Date: 2026-01-22 19:45:40
+ * @LastEditors: xingnian jixingnian@gmail.com
+ * @LastEditTime: 2026-01-22 20:06:08
+ * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\components\xn_blufi\include\xn_blufi.h
  * @Description: BluFi蓝牙配网组件 - 头文件
- * 
- * 功能说明：
- * 1. 通过蓝牙接收WiFi配置信息（SSID和密码）
- * 2. 管理WiFi连接、断开、扫描周围AP
- * 3. 保存和删除WiFi配置到NVS（非易失性存储）
- * 4. 面向对象设计，使用 xn_blufi_t 作为句柄
+ * VX:Jxingnian
+ * Copyright (c) 2026 by ${git_name_email}, All Rights Reserved. 
  */
 
 #ifndef XN_BLUFI_H

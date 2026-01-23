@@ -1,11 +1,12 @@
-/**
- * @file app_state_machine.c
- * @brief 应用顶层状态机实现
- * 
- * 本文件实现了系统的核心状态流转逻辑。
- * 状态机主要负责协调 WiFi、MQTT 和 BluFi 配网等模块的工作顺序。
- * 它通过订阅系统事件总线上的事件（如 WIFI_CONNECTED, MQTT_CONNECTED 等）
- * 来驱动系统状态在 INIT, WIFI_CONNECTING, READY 等状态间流转。
+/*
+ * @Author: xingnian jixingnian@gmail.com
+ * @Date: 2026-01-22 19:45:40
+ * @LastEditors: xingnian jixingnian@gmail.com
+ * @LastEditTime: 2026-01-23 09:41:00
+ * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\main\app_state_machine.c
+ * @Description: 应用顶层状态机实现 - 负责系统核心业务流程控制
+ * VX:Jxingnian
+ * Copyright (c) 2026 by ${git_name_email}, All Rights Reserved. 
  */
 
 #include <string.h>
@@ -46,9 +47,10 @@ static bool s_initialized = false;   // 模块初始化标志位，防止重复�
  */
 static void on_enter_init(xn_fsm_t *fsm, void *user_data)
 {
-    ESP_LOGI(TAG, "==> INIT state"); // 打印日志：进入INIT状态
-    // 发布"系统初始化完成"事件，驱动状态机流转
-    xn_event_post(XN_EVT_SYSTEM_INIT_DONE, XN_EVT_SRC_SYSTEM); // 发送事件告知系统初始化已完成
+    // 打印日志：进入INIT状态
+    ESP_LOGI(TAG, "==> INIT state"); 
+    // 发送事件告知系统初始化已完成，驱动状态机流转
+    xn_event_post(XN_EVT_SYSTEM_INIT_DONE, XN_EVT_SRC_SYSTEM); 
 }
 
 /**
@@ -65,9 +67,10 @@ static void on_enter_init(xn_fsm_t *fsm, void *user_data)
  */
 static void on_enter_wifi_connecting(xn_fsm_t *fsm, void *user_data)
 {
-    ESP_LOGI(TAG, "==> WIFI_CONNECTING state"); // 打印日志：进入WiFi连接状态
-    // 调用 WiFi Manager 开始连接
-    wifi_manager_start(); // 调用WiFi管理器接口，启动WiFi连接任务
+    // 打印日志：进入WiFi连接状态
+    ESP_LOGI(TAG, "==> WIFI_CONNECTING state"); 
+    // 调用WiFi管理器接口，启动WiFi连接任务
+    wifi_manager_start(); 
 }
 
 /**
@@ -82,7 +85,8 @@ static void on_enter_wifi_connecting(xn_fsm_t *fsm, void *user_data)
  */
 static void on_enter_wifi_connected(xn_fsm_t *fsm, void *user_data)
 {
-    ESP_LOGI(TAG, "==> WIFI_CONNECTED state (waiting for IP)"); // 打印日志：WiFi链路已通，等待IP分配
+    // 打印日志：WiFi链路已通，等待IP分配
+    ESP_LOGI(TAG, "==> WIFI_CONNECTED state (waiting for IP)"); 
 }
 
 /**
@@ -97,7 +101,8 @@ static void on_enter_wifi_connected(xn_fsm_t *fsm, void *user_data)
  */
 static void on_enter_mqtt_connecting(xn_fsm_t *fsm, void *user_data)
 {
-    ESP_LOGI(TAG, "==> MQTT_CONNECTING state"); // 打印日志：进入MQTT连接状态
+    // 打印日志：进入MQTT连接状态
+    ESP_LOGI(TAG, "==> MQTT_CONNECTING state"); 
     // MQTT Manager 负责监听 GOT_IP 事件，此时应该已经开始自动连接
     // 此状态作为一个逻辑检查点
 }
@@ -115,9 +120,10 @@ static void on_enter_mqtt_connecting(xn_fsm_t *fsm, void *user_data)
  */
 static void on_enter_ready(xn_fsm_t *fsm, void *user_data)
 {
-    ESP_LOGI(TAG, "==> READY state - System is fully operational"); // 打印日志：系统完全就绪
-    // 发布系统就绪事件，通知业务层或其他服务
-    xn_event_post(XN_EVT_SYSTEM_READY, XN_EVT_SRC_SYSTEM); // 发送系统就绪事件，通知应用层
+    // 打印日志：系统完全就绪
+    ESP_LOGI(TAG, "==> READY state - System is fully operational"); 
+    // 发送系统就绪事件，通知应用层或其他服务
+    xn_event_post(XN_EVT_SYSTEM_READY, XN_EVT_SRC_SYSTEM); 
 }
 
 /**
@@ -132,9 +138,10 @@ static void on_enter_ready(xn_fsm_t *fsm, void *user_data)
  */
 static void on_enter_blufi_config(xn_fsm_t *fsm, void *user_data)
 {
-    ESP_LOGI(TAG, "==> BLUFI_CONFIG state"); // 打印日志：进入BluFi配网状态
-    // 启动蓝牙配网
-    blufi_manager_start(); // 调用BluFi管理器接口，启动蓝牙配网服务
+    // 打印日志：进入BluFi配网状态
+    ESP_LOGI(TAG, "==> BLUFI_CONFIG state"); 
+    // 调用BluFi管理器接口，启动蓝牙配网服务
+    blufi_manager_start(); 
 }
 
 /**
@@ -146,9 +153,10 @@ static void on_enter_blufi_config(xn_fsm_t *fsm, void *user_data)
  */
 static void on_exit_blufi_config(xn_fsm_t *fsm, void *user_data)
 {
-    ESP_LOGI(TAG, "<== Exiting BLUFI_CONFIG state"); // 打印日志：退出BluFi配网状态
-    // 停止蓝牙配网，释放蓝牙资源（如果策略允许）
-    blufi_manager_stop(); // 调用BluFi管理器接口，停止蓝牙配网服务
+    // 打印日志：退出BluFi配网状态
+    ESP_LOGI(TAG, "<== Exiting BLUFI_CONFIG state"); 
+    // 调用BluFi管理器接口，停止蓝牙配网服务
+    blufi_manager_stop(); 
 }
 
 /**
@@ -160,8 +168,10 @@ static void on_exit_blufi_config(xn_fsm_t *fsm, void *user_data)
  */
 static void on_enter_error(xn_fsm_t *fsm, void *user_data)
 {
-    ESP_LOGE(TAG, "==> ERROR state"); // 打印错误日志：进入ERROR状态
-    xn_event_post(XN_EVT_SYSTEM_ERROR, XN_EVT_SRC_SYSTEM); // 发送系统错误事件
+    // 打印错误日志：进入ERROR状态
+    ESP_LOGE(TAG, "==> ERROR state"); 
+    // 发送系统错误事件
+    xn_event_post(XN_EVT_SYSTEM_ERROR, XN_EVT_SRC_SYSTEM); 
 }
 
 /*===========================================================================
@@ -261,8 +271,10 @@ static void event_handler(const xn_event_t *event, void *user_data)
 {
     // 调用 FSM 处理函数，将事件 ID 传入状态机
     esp_err_t ret = xn_fsm_process_event(&s_fsm, event->id); 
-    if (ret == ESP_OK) { // 如果返回值是 ESP_OK，说明发生了状态转换
-        ESP_LOGD(TAG, "State transition triggered by event 0x%04x", event->id); // 打印调试日志
+    // 如果返回值是 ESP_OK，说明发生了状态转换
+    if (ret == ESP_OK) { 
+        // 打印调试日志
+        ESP_LOGD(TAG, "State transition triggered by event 0x%04x", event->id); 
     }
 }
 
@@ -272,8 +284,10 @@ static void event_handler(const xn_event_t *event, void *user_data)
 
 esp_err_t app_state_machine_init(void)
 {
-    if (s_initialized) { // 检查是否已经初始化
-        return ESP_ERR_INVALID_STATE; // 如果已初始化，返回无效状态错误
+    // 检查是否已经初始化
+    if (s_initialized) { 
+        // 如果已初始化，返回无效状态错误
+        return ESP_ERR_INVALID_STATE; 
     }
     
     xn_fsm_config_t config = {
@@ -288,39 +302,52 @@ esp_err_t app_state_machine_init(void)
     
     // 初始化 FSM 实例
     esp_err_t ret = xn_fsm_init(&s_fsm, &config);
-    if (ret != ESP_OK) { // 检查初始化是否成功
-        ESP_LOGE(TAG, "Failed to init FSM: %s", esp_err_to_name(ret)); // 打印错误日志
-        return ret; // 返回错误码
+    // 检查初始化是否成功
+    if (ret != ESP_OK) { 
+        // 打印错误日志
+        ESP_LOGE(TAG, "Failed to init FSM: %s", esp_err_to_name(ret)); 
+        // 返回错误码
+        return ret; 
     }
     
     // 订阅所有相关事件（这里简单地订阅所有事件，实际可优化只订阅关心的ID）
     // 注册 event_handler 回调处理所有事件
     xn_event_subscribe(XN_EVT_ANY, event_handler, NULL);
     
-    s_initialized = true; // 标记初始化完成
-    ESP_LOGI(TAG, "App state machine initialized"); // 打印初始化成功日志
+    // 标记初始化完成
+    s_initialized = true; 
+    // 打印初始化成功日志
+    ESP_LOGI(TAG, "App state machine initialized"); 
     
-    return ESP_OK; // 返回成功
+    // 返回成功
+    return ESP_OK; 
 }
 
 esp_err_t app_state_machine_start(void)
 {
-    if (!s_initialized) { // 检查是否已初始化
-        return ESP_ERR_INVALID_STATE; // 未初始化则报错
+    // 检查是否已初始化
+    if (!s_initialized) { 
+        // 未初始化则报错
+        return ESP_ERR_INVALID_STATE; 
     }
     
-    return xn_fsm_start(&s_fsm); // 启动状态机，使其进入初始状态
+    // 启动状态机，使其进入初始状态
+    return xn_fsm_start(&s_fsm); 
 }
 
 esp_err_t app_state_machine_stop(void)
 {
-    if (!s_initialized) { // 检查是否已初始化
-        return ESP_ERR_INVALID_STATE; // 未初始化则报错
+    // 检查是否已初始化
+    if (!s_initialized) { 
+        // 未初始化则报错
+        return ESP_ERR_INVALID_STATE; 
     }
     
-    xn_event_unsubscribe_all(event_handler); // 取消订阅所有事件
+    // 取消订阅所有事件
+    xn_event_unsubscribe_all(event_handler); 
     
-    return xn_fsm_stop(&s_fsm); // 停止状态机
+    // 停止状态机
+    return xn_fsm_stop(&s_fsm); 
 }
 
 app_state_t app_state_machine_get_state(void)
@@ -339,5 +366,7 @@ esp_err_t app_state_machine_enter_blufi(void)
 {
     // 发送 BLUFI_START 命令事件，由 FSM 处理跳转
     xn_event_post(XN_CMD_BLUFI_START, XN_EVT_SRC_SYSTEM);
-    return ESP_OK; // 命令发送成功
+    // 命令发送成功
+    return ESP_OK; 
 }
+

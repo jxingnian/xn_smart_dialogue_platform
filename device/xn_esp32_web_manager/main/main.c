@@ -1,19 +1,12 @@
 /*
- * @Author: xing nian jixingnian@gmail.com
+ * @Author: xingnian jixingnian@gmail.com
  * @Date: 2026-01-22 12:19:09
- * @LastEditors: xing nian jixingnian@gmail.com
- * @LastEditTime: 2026-01-22 16:05:30
+ * @LastEditors: xingnian jixingnian@gmail.com
+ * @LastEditTime: 2026-01-22 20:06:08
  * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\main\main.c
- * @Description: 
+ * @Description: AI语音对话项目 esp32设备端 应用程序入口
  * VX:Jxingnian
  * Copyright (c) 2026 by ${git_name_email}, All Rights Reserved. 
- */
-/**
- * @file main.c
- * @brief 应用程序入口
- * 
- * 初始化系统组件和模块，启动顶层状态机。
- * 按顺序初始化: NVS -> EventLoop -> EventBus -> Managers -> AppStateMachine
  */
 
 #include <stdio.h>
@@ -47,10 +40,14 @@ static esp_err_t init_nvs(void)
     
     // 如果没有空闲页或发现新版本，需要擦除NVS分区后重试
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        // 打印警告日志，提示正在擦除NVS
         ESP_LOGW(TAG, "NVS flash erase and init...");
+        // 擦除NVS分区
         ESP_ERROR_CHECK(nvs_flash_erase());
+        // 再次尝试初始化NVS
         ret = nvs_flash_init();
     }
+    // 返回初始化结果
     return ret;
 }
 
@@ -59,58 +56,63 @@ static esp_err_t init_nvs(void)
  */
 void app_main(void)
 {
+    // 打印系统启动分割线日志
     ESP_LOGI(TAG, "========================================");
+    // 打印系统启动信息日志
     ESP_LOGI(TAG, "  XN Smart Dialogue Platform Starting");
+    // 打印系统启动分割线日志
     ESP_LOGI(TAG, "========================================");
     
-    // 1. 初始化NVS子系统
-    // 必须最先初始化，后续的WiFi/BluFi等模块都依赖NVS读取配置
+    // 初始化NVS子系统
     ESP_ERROR_CHECK(init_nvs());
+    // 打印NVS初始化成功日志
     ESP_LOGI(TAG, "NVS initialized");
     
-    // 2. 创建系统默认事件循环
-    // ESP-IDF的WiFi、IP等底层事件都通过此默认循环分发
+    // 创建系统默认事件循环
     ESP_ERROR_CHECK(esp_event_loop_create_default());
+    // 打印事件循环创建成功日志
     ESP_LOGI(TAG, "Event loop created");
     
-    // 3. 初始化自定义事件总线
-    // 用于模块间（Managers、StateMachine）的解耦通信
+    // 初始化自定义事件总线
     ESP_ERROR_CHECK(xn_event_bus_init());
+    // 打印事件总线初始化成功日志
     ESP_LOGI(TAG, "Event bus initialized");
     
-    // 4. 初始化各功能管理器 (Managers)
-    // 此时仅初始化资源和注册事件回调，不立即启动业务（如不立即连接WiFi）
-    
-    // 4.1 初始化WiFi管理器
+    // 初始化WiFi管理器
     ESP_ERROR_CHECK(wifi_manager_init());
+    // 打印WiFi管理器初始化成功日志
     ESP_LOGI(TAG, "WiFi manager initialized");
     
-    // 4.2 初始化MQTT管理器
+    // 初始化MQTT管理器
     ESP_ERROR_CHECK(mqtt_manager_init());
+    // 打印MQTT管理器初始化成功日志
     ESP_LOGI(TAG, "MQTT manager initialized");
     
-    // 4.3 初始化BluFi配网管理器
+    // 初始化BluFi配网管理器
     ESP_ERROR_CHECK(blufi_manager_init());
+    // 打印BluFi管理器初始化成功日志
     ESP_LOGI(TAG, "BluFi manager initialized");
     
-    // 5. 初始化并启动顶层状态机
-    // 状态机负责协调各Manager的工作流程（如先配网，再连WiFi，再连MQTT）
+    // 初始化应用状态机
     ESP_ERROR_CHECK(app_state_machine_init());
+    // 启动应用状态机
     ESP_ERROR_CHECK(app_state_machine_start());
+    // 打印状态机启动成功日志
     ESP_LOGI(TAG, "App state machine started");
     
+    // 打印系统初始化完成分割线日志
     ESP_LOGI(TAG, "========================================");
+    // 打印系统初始化完成日志
     ESP_LOGI(TAG, "  System initialization complete!");
+    // 打印系统初始化完成分割线日志
     ESP_LOGI(TAG, "========================================");
     
-    // 主循环（低优先级任务）
-    // 用于周期性打印系统状态监控信息
+    // 进入主循环
     while (1) {
-        vTaskDelay(pdMS_TO_TICKS(10000)); // 每10秒打印一次
+        // 延时10秒
+        vTaskDelay(pdMS_TO_TICKS(10000));
         // 获取并打印当前应用状态机所处状态
         ESP_LOGI(TAG, "System state: %s", app_state_machine_get_state_name());
-        
-        // 可选：打印内存剩余情况
-        // ESP_LOGI(TAG, "Free heap: %d bytes", esp_get_free_heap_size());
     }
 }
+

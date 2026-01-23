@@ -91,42 +91,39 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
             xn_event_post_data(XN_EVT_MQTT_DATA, XN_EVT_SRC_MQTT, &data, sizeof(data));
             break;
         }
-            
-        case MQTT_EVENT_ERROR:
-            ESP_LOGE(TAG, "MQTT error");
-            if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT) {
-                ESP_LOGE(TAG, "Last error code reported from esp-tls: 0x%x", event->error_handle->esp_tls_last_esp_err);
-                ESP_LOGE(TAG, "Last tls stack error number: 0x%x", event->error_handle->esp_tls_stack_err);
-                ESP_LOGE(TAG, "Last captured errno : %d (%s)",  event->error_handle->esp_transport_sock_errno,
-                         strerror(event->error_handle->esp_transport_sock_errno));
-            }
+        case WEB_MQTT_STATE_ERROR:
+            // 标记已断开
+            s_connected = false;
+            // 发布MQTT错误事件
             xn_event_post(XN_EVT_MQTT_ERROR, XN_EVT_SRC_MQTT);
             break;
             
         default:
-            ESP_LOGD(TAG, "Unhandled event id: %d", (int)event_id);
             break;
     }
 }
 
-/*===========================================================================
- *                          命令事件处理
- *===========================================================================*/
-
 /**
- * @brief XN事件总线命令回调
+ * @brief 系统事件处理回调
+ * 
+ * 监听 WiFi 状态事件，实现自动连接逻辑。
  */
-static void cmd_event_handler(const xn_event_t *event, void *user_data)
+static void system_event_handler(const xn_event_t *event, void *user_data)
 {
+    // 根据事件ID处理
     switch (event->id) {
-        case XN_CMD_MQTT_CONNECT:
-            ESP_LOGI(TAG, "Received MQTT_CONNECT command");
-            mqtt_manager_connect();
+        case XN_EVT_WIFI_GOT_IP:
+            // 打印日志
+            ESP_LOGI(TAG, "WiFi Got IP, starting MQTT...");
+            // WiFi连接成功，自动启动MQTT连接（底层组件已配置自动重连，这里确保它处于运行状态）
             break;
             
-        case XN_CMD_MQTT_DISCONNECT:
-            ESP_LOGI(TAG, "Received MQTT_DISCONNECT command");
-            mqtt_manager_disconnect();
+        case XN_EVT_WIFI_DISCONNECTED:
+            // 打印日志
+            ESP_LOGW(TAG, "WiFi Disconnected, MQTT will pause...");
+            // WiFi断开，底层MQTT会自动检测到网络错误并进入重连等待，
+            // 也可以选择显式暂停MQTT以节省资源
+            s_connected = false;
             break;
             
         default:
@@ -134,23 +131,6 @@ static void cmd_event_handler(const xn_event_t *event, void *user_data)
     }
 }
 
-/**
- * @brief WiFi事件回调
- * 
- * 监听 WiFi 获取IP事件，以实现自动连接 MQTT。
- */
-static void wifi_event_handler(const xn_event_t *event, void *user_data)
-{
-    if (event->id == XN_EVT_WIFI_GOT_IP) {
-        ESP_LOGI(TAG, "WiFi connected, starting MQTT...");
-        // WiFi就绪，启动MQTT连接
-        mqtt_manager_connect();
-    } else if (event->id == XN_EVT_WIFI_DISCONNECTED) {
-        ESP_LOGI(TAG, "WiFi disconnected");
-        // WiFi断开，MQTT连接也会由于网络中断而断开
-        // 此处可选：主动 stop client
-    }
-}
 
 /*===========================================================================
  *                          公共API
@@ -158,82 +138,66 @@ static void wifi_event_handler(const xn_event_t *event, void *user_data)
 
 esp_err_t mqtt_manager_init(void)
 {
+    // 检查是否已初始化
     if (s_initialized) {
+        // 已初始化则返回状态错误
         return ESP_ERR_INVALID_STATE;
     }
     
-    // 配置MQTT客户端
-    esp_mqtt_client_config_t mqtt_cfg = {
-        .broker.address.uri = MQTT_BROKER_URI,
-        // .session.keepalive = 60,
-    };
+    // 初始化配置，使用默认配置
+    web_mqtt_manager_config_t config = WEB_MQTT_MANAGER_DEFAULT_CONFIG();
     
-    s_client = esp_mqtt_client_init(&mqtt_cfg);
-    if (s_client == NULL) {
-        ESP_LOGE(TAG, "Failed to init MQTT client");
-        return ESP_FAIL;
+    // 设置MQTT Broker地址 (建议改为从NVS读取)
+    config.broker_uri = "mqtt://broker.emqx.io:1883"; 
+    // 设置项目基础Topic
+    config.base_topic = "xn/device";
+    // 注册状态回调
+    config.event_cb = on_mqtt_state_changed;
+    
+    // 初始化Web MQTT组件
+    esp_err_t ret = web_mqtt_manager_init(&config);
+    // 检查初始化结果
+    if (ret != ESP_OK) {
+        // 打印错误日志
+        ESP_LOGE(TAG, "Failed to init Web MQTT: %s", esp_err_to_name(ret));
+        // 返回错误码
+        return ret;
     }
     
-    // 注册底层MQTT事件
-    esp_mqtt_client_register_event(s_client, ESP_EVENT_ANY_ID, 
-                                   mqtt_event_handler, NULL);
+    // 订阅系统事件 - 关注WiFi状态
+    xn_event_subscribe(XN_EVT_WIFI_GOT_IP, system_event_handler, NULL);
+    xn_event_subscribe(XN_EVT_WIFI_DISCONNECTED, system_event_handler, NULL);
     
-    // 订阅内部命令
-    xn_event_subscribe(XN_CMD_MQTT_CONNECT, cmd_event_handler, NULL);
-    xn_event_subscribe(XN_CMD_MQTT_DISCONNECT, cmd_event_handler, NULL);
-    
-    // 订阅WiFi事件(用于自动连接)
-    xn_event_subscribe(XN_EVT_WIFI_GOT_IP, wifi_event_handler, NULL);
-    xn_event_subscribe(XN_EVT_WIFI_DISCONNECTED, wifi_event_handler, NULL);
-    
+    // 标记初始化完成
     s_initialized = true;
+    // 打印初始化成功日志
     ESP_LOGI(TAG, "MQTT manager initialized");
     
+    // 返回成功
     return ESP_OK;
 }
 
 esp_err_t mqtt_manager_deinit(void)
 {
+    // 检查是否已初始化
     if (!s_initialized) {
         return ESP_ERR_INVALID_STATE;
     }
     
-    xn_event_unsubscribe_all(cmd_event_handler);
-    xn_event_unsubscribe_all(wifi_event_handler);
+    // 取消订阅系统事件
+    xn_event_unsubscribe(XN_EVT_WIFI_GOT_IP, system_event_handler);
+    xn_event_unsubscribe(XN_EVT_WIFI_DISCONNECTED, system_event_handler);
     
-    if (s_client) {
-        esp_mqtt_client_stop(s_client);
-        esp_mqtt_client_destroy(s_client);
-        s_client = NULL;
-    }
+    // 注意：Web MQTT 组件暂时没有提供反初始化函数，这里仅标记
     
+    // 重置初始化标志
     s_initialized = false;
+    // 重置连接标志
     s_connected = false;
     
+    // 打印反初始化完成日志
     ESP_LOGI(TAG, "MQTT manager deinitialized");
     
-    return ESP_OK;
-}
-
-esp_err_t mqtt_manager_connect(void)
-{
-    if (!s_initialized || s_client == NULL) {
-        return ESP_ERR_INVALID_STATE;
-    }
-    
-    return esp_mqtt_client_start(s_client);
-}
-
-esp_err_t mqtt_manager_disconnect(void)
-{
-    if (!s_initialized || s_client == NULL) {
-        return ESP_ERR_INVALID_STATE;
-    }
-    
-    return esp_mqtt_client_stop(s_client);
-}
-
-esp_err_t mqtt_manager_publish(const char *topic, const char *data, int qos)
 {
     if (!s_initialized || s_client == NULL || !s_connected) {
         return ESP_ERR_INVALID_STATE;

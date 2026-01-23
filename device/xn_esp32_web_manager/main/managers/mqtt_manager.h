@@ -1,14 +1,12 @@
-/**
- * @file mqtt_manager.h
- * @brief MQTT应用管理器 - 通过事件与其他模块通信
- * 
- * 封装 ESP-IDF 的 MQTT Client。
- * 负责：
- * - 初始化 MQTT 客户端
- * - 处理连接、断开、订阅、发布等逻辑
- * - 监听系统命令事件（如连接、断开）
- * - 监听 WiFi 事件（如获取IP后自动连接）
- * - 发布 MQTT 状态和数据事件
+/*
+ * @Author: xingnian jixingnian@gmail.com
+ * @Date: 2026-01-22 19:45:40
+ * @LastEditors: xingnian jixingnian@gmail.com
+ * @LastEditTime: 2026-01-22 20:06:08
+ * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\main\managers\mqtt_manager.h
+ * @Description: MQTT应用管理器头文件 - 通过事件与其他模块通信
+ * VX:Jxingnian
+ * Copyright (c) 2026 by ${git_name_email}, All Rights Reserved. 
  */
 
 #ifndef MQTT_MANAGER_H
@@ -66,10 +64,11 @@ esp_err_t mqtt_manager_disconnect(void);
  * 
  * @param topic 主题
  * @param data 负载数据（字符串）
+ * @param len 数据长度
  * @param qos 服务质量 (0, 1, 2)
  * @return esp_err_t 发布请求提交结果
  */
-esp_err_t mqtt_manager_publish(const char *topic, const char *data, int qos);
+esp_err_t mqtt_manager_publish(const char *topic, const void *data, size_t len, int qos);
 
 /**
  * @brief 订阅主题
@@ -93,3 +92,4 @@ bool mqtt_manager_is_connected(void);
 #endif
 
 #endif /* MQTT_MANAGER_H */
+

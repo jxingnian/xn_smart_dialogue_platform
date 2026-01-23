@@ -1,14 +1,12 @@
 /*
- * @Author: 星年 jixingnian@gmail.com
- * @Date: 2025-01-15
- * @Description: Web MQTT 管理器实现（基于 mqtt_module 封装状态机与重连逻辑）
- * 
- * 职责划分：
- *  - 作为上层管理模块，负责 MQTT 连接状态机与自动重连策略；
- *  - 通过 mqtt_module 完成具体的 MQTT 客户端初始化与连接；
- *  - 通过 web_mqtt_event_cb_t 回调向上层报告抽象状态变化。
- * 
- * 不直接处理业务 Topic，只关注“是否连上 MQTT 服务器”。
+ * @Author: xingnian jixingnian@gmail.com
+ * @Date: 2026-01-22 19:45:40
+ * @LastEditors: xingnian jixingnian@gmail.com
+ * @LastEditTime: 2026-01-22 20:06:08
+ * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\components\xn_iot_manager_mqtt\src\web_mqtt_manager.c
+ * @Description: Web MQTT 管理器 - 实现文件
+ * VX:Jxingnian
+ * Copyright (c) 2026 by ${git_name_email}, All Rights Reserved. 
  */
 
 #include <string.h>
@@ -238,11 +236,13 @@ esp_err_t web_mqtt_manager_init(const web_mqtt_manager_config_t *config)
     return ESP_OK;
 }
 
+/* 获取当前 MQTT 客户端 ID */
 const char *web_mqtt_manager_get_client_id(void)
 {
     return s_mgr_cfg.client_id;
 }
 
+/* 获取当前配置的基础下行 Topic 前缀 */
 const char *web_mqtt_manager_get_base_topic(void)
 {
     return s_mgr_cfg.base_topic;

@@ -1,9 +1,12 @@
-/**
- * @file xn_event_types.h
- * @brief 事件类型定义 - 通用可移植
- * 
- * 此文件定义了系统中的所有事件类别、事件ID以及相关的数据结构。
- * 事件ID采用分段管理，高字节表示类别，低字节表示具体事件。
+/*
+ * @Author: xingnian jixingnian@gmail.com
+ * @Date: 2026-01-22 19:45:40
+ * @LastEditors: xingnian jixingnian@gmail.com
+ * @LastEditTime: 2026-01-22 20:06:08
+ * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\components\xn_event_bus\include\xn_event_types.h
+ * @Description: 事件类型定义 - 通用可移植
+ * VX:Jxingnian
+ * Copyright (c) 2026 by ${git_name_email}, All Rights Reserved. 
  */
 
 #ifndef XN_EVENT_TYPES_H
@@ -212,3 +215,4 @@ typedef enum {
 #endif
 
 #endif /* XN_EVENT_TYPES_H */
+

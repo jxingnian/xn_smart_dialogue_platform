@@ -1,10 +1,12 @@
-/**
- * @file app_state_machine.h
- * @brief 应用顶层状态机 - 管理系统整体状态和流程
- * 
- * 顶层状态机负责协调各个子Manager（WiFi, MQTT, BluFi）的工作顺序。
- * 它定义了系统的高级状态（如WIFI连接中，MQTT连接中，系统就绪等），
- * 并根据底层事件（如WiFi已连接，MQTT断开等）进行状态流转。
+/*
+ * @Author: xingnian jixingnian@gmail.com
+ * @Date: 2026-01-22 19:45:40
+ * @LastEditors: xingnian jixingnian@gmail.com
+ * @LastEditTime: 2026-01-22 20:06:08
+ * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\main\app_state_machine.h
+ * @Description: 应用顶层状态机头文件 - 管理系统整体状态和流程
+ * VX:Jxingnian
+ * Copyright (c) 2026 by ${git_name_email}, All Rights Reserved. 
  */
 
 #ifndef APP_STATE_MACHINE_H
@@ -98,3 +100,4 @@ esp_err_t app_state_machine_enter_blufi(void);
 #endif
 
 #endif /* APP_STATE_MACHINE_H */
+

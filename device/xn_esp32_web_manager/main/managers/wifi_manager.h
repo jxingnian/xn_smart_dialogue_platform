@@ -1,13 +1,12 @@
-/**
- * @file wifi_manager.h
- * @brief WiFi应用管理器 - 通过事件与其他模块通信
- * 
- * 封装 ESP-IDF 的 WiFi Driver 和 Event Loop。
- * 负责：
- * - 初始化 WiFi Station 模式
- * - 处理 WiFi 连接/断开/重连逻辑
- * - 监听系统命令事件（如连接指定AP、断开连接）
- * - 发布 WiFi 状态事件（如已连接、获取IP、断开）
+/*
+ * @Author: xingnian jixingnian@gmail.com
+ * @Date: 2026-01-22 19:45:40
+ * @LastEditors: xingnian jixingnian@gmail.com
+ * @LastEditTime: 2026-01-22 20:06:08
+ * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\main\managers\wifi_manager.h
+ * @Description: WiFi应用管理器头文件 - 通过事件与其他模块通信
+ * VX:Jxingnian
+ * Copyright (c) 2026 by ${git_name_email}, All Rights Reserved. 
  */
 
 #ifndef WIFI_MANAGER_H
@@ -102,3 +101,4 @@ uint32_t wifi_manager_get_ip(void);
 #endif
 
 #endif /* WIFI_MANAGER_H */
+

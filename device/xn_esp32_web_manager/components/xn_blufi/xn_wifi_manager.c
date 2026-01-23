@@ -1,7 +1,12 @@
 /*
- * @Author: 星年 jixingnian@gmail.com
- * @Date: 2025-01-15
- * @Description: WiFi管理层 - 实现文件
+ * @Author: xingnian jixingnian@gmail.com
+ * @Date: 2026-01-22 19:45:40
+ * @LastEditors: xingnian jixingnian@gmail.com
+ * @LastEditTime: 2026-01-22 20:06:08
+ * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\components\xn_blufi\xn_wifi_manager.c
+ * @Description: WiFi管理层 - 封装ESP-IDF WiFi API
+ * VX:Jxingnian
+ * Copyright (c) 2026 by ${git_name_email}, All Rights Reserved. 
  */
 
 #include "xn_wifi_manager.h"
@@ -329,3 +334,4 @@ void xn_wifi_manager_register_status_cb(xn_wifi_manager_t *manager,
         manager->status_callback = callback;
     }
 }
+

@@ -1,13 +1,12 @@
 /*
- * @Author: 星年 jixingnian@gmail.com
- * @Date: 2025-01-15
- * @Description: Web MQTT 管理器头文件
- * 
- * 功能说明：
- * - 负责管理MQTT连接状态机
- * - 实现自动重连逻辑
- * - 统一管理MQTT配置信息
- * - 向应用层提供状态事件通知
+ * @Author: xingnian jixingnian@gmail.com
+ * @Date: 2026-01-22 19:45:40
+ * @LastEditors: xingnian jixingnian@gmail.com
+ * @LastEditTime: 2026-01-22 20:06:08
+ * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\components\xn_iot_manager_mqtt\include\web_mqtt_manager.h
+ * @Description: Web MQTT 管理器 - 头文件
+ * VX:Jxingnian
+ * Copyright (c) 2026 by ${git_name_email}, All Rights Reserved. 
  */
 
 #ifndef WEB_MQTT_MANAGER_H

@@ -1,12 +1,12 @@
 /*
- * @Author: 星年 jixingnian@gmail.com
- * @Date: 2025-01-15
- * @Description: MQTT 模块对外接口（仅负责 MQTT 客户端连接与事件上报）
- * 
- * 设计要点：
- * - 只关心 MQTT 客户端本身，不直接耦合上层业务；
- * - 通过简单事件回调向上层报告连接状态变化；
- * - 由 web_mqtt_manager 在初始化时配置 broker_uri / 认证信息等。
+ * @Author: xingnian jixingnian@gmail.com
+ * @Date: 2026-01-22 19:45:40
+ * @LastEditors: xingnian jixingnian@gmail.com
+ * @LastEditTime: 2026-01-22 20:06:08
+ * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\components\xn_iot_manager_mqtt\include\mqtt_module.h
+ * @Description: MQTT 模块 - 对外接口
+ * VX:Jxingnian
+ * Copyright (c) 2026 by ${git_name_email}, All Rights Reserved. 
  */
 
 #ifndef MQTT_MODULE_H
