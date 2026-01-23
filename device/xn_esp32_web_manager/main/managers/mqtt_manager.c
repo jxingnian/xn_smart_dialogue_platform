@@ -10,6 +10,8 @@
 #include "mqtt_client.h"
 #include "xn_event_bus.h"
 #include "mqtt_manager.h"
+#include "web_mqtt_manager.h"
+#include "mqtt_module.h"
 
 static const char *TAG = "mqtt_manager";
 
@@ -28,69 +30,30 @@ static const char *TAG = "mqtt_manager";
 
 static bool s_initialized = false;              ///< 初始化标志
 static bool s_connected = false;                ///< 连接状态标志
-static esp_mqtt_client_handle_t s_client = NULL; ///< MQTT客户端句柄
 
 /*===========================================================================
  *                          事件处理
  *===========================================================================*/
 
 /**
- * @brief ESP-IDF MQTT底层事件回调
- * 
- * 处理底层 MQTT Client 的各种事件（连接、断开、数据到达等），
- * 并将其封装为 XN_EVENT 广播到事件总线。
+ * @brief MQTT状态变更回调
  */
-static void mqtt_event_handler(void *handler_args, esp_event_base_t base, 
-                               int32_t event_id, void *event_data)
+static void on_mqtt_state_changed(web_mqtt_state_t state)
 {
-    esp_mqtt_event_handle_t event = event_data;
-    
-    switch ((esp_mqtt_event_id_t)event_id) {
-        case MQTT_EVENT_BEFORE_CONNECT:
-            ESP_LOGI(TAG, "Connecting to MQTT broker...");
-            xn_event_post(XN_EVT_MQTT_CONNECTING, XN_EVT_SRC_MQTT);
-            break;
-            
-        case MQTT_EVENT_CONNECTED:
+    switch (state) {
+        case WEB_MQTT_STATE_CONNECTED:
+        case WEB_MQTT_STATE_READY:
             ESP_LOGI(TAG, "Connected to MQTT broker");
             s_connected = true;
             xn_event_post(XN_EVT_MQTT_CONNECTED, XN_EVT_SRC_MQTT);
-            
-            // 连接成功后，可以根据需要自动订阅一些主题
-            // mqtt_manager_subscribe("device/+/command", 1);
             break;
             
-        case MQTT_EVENT_DISCONNECTED:
+        case WEB_MQTT_STATE_DISCONNECTED:
             ESP_LOGW(TAG, "Disconnected from MQTT broker");
             s_connected = false;
             xn_event_post(XN_EVT_MQTT_DISCONNECTED, XN_EVT_SRC_MQTT);
             break;
             
-        case MQTT_EVENT_SUBSCRIBED:
-            ESP_LOGI(TAG, "Subscribed, msg_id=%d", event->msg_id);
-            xn_event_post(XN_EVT_MQTT_SUBSCRIBED, XN_EVT_SRC_MQTT);
-            break;
-            
-        case MQTT_EVENT_PUBLISHED:
-            ESP_LOGD(TAG, "Published, msg_id=%d", event->msg_id);
-            xn_event_post(XN_EVT_MQTT_PUBLISHED, XN_EVT_SRC_MQTT);
-            break;
-            
-        case MQTT_EVENT_DATA: {
-            ESP_LOGI(TAG, "Received data: topic=%.*s", event->topic_len, event->topic);
-            
-            // 收到消息，封装后发布到事件总线
-            // 注意：event->data 不一定是 NULL 结尾的字符串，需要结合 data_len 使用
-            xn_evt_mqtt_data_t data = {
-                .topic = event->topic,
-                .topic_len = event->topic_len,
-                .data = event->data,
-                .data_len = event->data_len,
-                .msg_id = event->msg_id,
-            };
-            xn_event_post_data(XN_EVT_MQTT_DATA, XN_EVT_SRC_MQTT, &data, sizeof(data));
-            break;
-        }
         case WEB_MQTT_STATE_ERROR:
             // 标记已断开
             s_connected = false;
@@ -101,6 +64,24 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
         default:
             break;
     }
+}
+
+/**
+ * @brief MQTT消息接收回调
+ */
+static void on_mqtt_message(const char *topic, int topic_len, const uint8_t *payload, int payload_len)
+{
+    ESP_LOGD(TAG, "Received data: topic=%.*s", topic_len, topic);
+    
+    // 收到消息，封装后发布到事件总线
+    xn_evt_mqtt_data_t data = {
+        .topic = (char *)topic,
+        .topic_len = topic_len,
+        .data = (char *)payload,
+        .data_len = payload_len,
+        .msg_id = 0, // 模块层未透传msg_id
+    };
+    xn_event_post_data(XN_EVT_MQTT_DATA, XN_EVT_SRC_MQTT, &data, sizeof(data));
 }
 
 /**
@@ -153,6 +134,8 @@ esp_err_t mqtt_manager_init(void)
     config.base_topic = "xn/device";
     // 注册状态回调
     config.event_cb = on_mqtt_state_changed;
+    // 注册消息回调
+    config.message_cb = on_mqtt_message;
     
     // 初始化Web MQTT组件
     esp_err_t ret = web_mqtt_manager_init(&config);
@@ -188,7 +171,8 @@ esp_err_t mqtt_manager_deinit(void)
     xn_event_unsubscribe(XN_EVT_WIFI_GOT_IP, system_event_handler);
     xn_event_unsubscribe(XN_EVT_WIFI_DISCONNECTED, system_event_handler);
     
-    // 注意：Web MQTT 组件暂时没有提供反初始化函数，这里仅标记
+    // 停止MQTT
+    mqtt_module_stop();
     
     // 重置初始化标志
     s_initialized = false;
@@ -197,33 +181,25 @@ esp_err_t mqtt_manager_deinit(void)
     
     // 打印反初始化完成日志
     ESP_LOGI(TAG, "MQTT manager deinitialized");
-    
+    return ESP_OK;
+}
+
+esp_err_t mqtt_manager_publish(const char *topic, const void *data, size_t len, int qos)
 {
-    if (!s_initialized || s_client == NULL || !s_connected) {
+    if (!s_initialized) {
         return ESP_ERR_INVALID_STATE;
     }
     
-    if (topic == NULL) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    
-    int msg_id = esp_mqtt_client_publish(s_client, topic, data, 
-                                          data ? strlen(data) : 0, qos, 0);
-    return (msg_id >= 0) ? ESP_OK : ESP_FAIL;
+    return mqtt_module_publish(topic, data, (int)len, qos, 0);
 }
 
 esp_err_t mqtt_manager_subscribe(const char *topic, int qos)
 {
-    if (!s_initialized || s_client == NULL || !s_connected) {
+    if (!s_initialized) {
         return ESP_ERR_INVALID_STATE;
     }
     
-    if (topic == NULL) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    
-    int msg_id = esp_mqtt_client_subscribe(s_client, topic, qos);
-    return (msg_id >= 0) ? ESP_OK : ESP_FAIL;
+    return mqtt_module_subscribe(topic, qos);
 }
 
 bool mqtt_manager_is_connected(void)

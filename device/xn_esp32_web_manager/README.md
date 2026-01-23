@@ -2,7 +2,7 @@
  * @Author: xingnian jixingnian@gmail.com
  * @Date: 2026-01-22 19:45:40
  * @LastEditors: xingnian jixingnian@gmail.com
- * @LastEditTime: 2026-01-22 20:08:49
+ * @LastEditTime: 2026-01-23 10:29:08
  * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\README.md
  * @Description: AI语音对话项目 esp32设备端 readme说明文档
  * VX:Jxingnian

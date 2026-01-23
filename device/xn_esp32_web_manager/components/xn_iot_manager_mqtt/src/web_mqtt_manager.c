@@ -196,7 +196,7 @@ esp_err_t web_mqtt_manager_init(const web_mqtt_manager_config_t *config)
 
     // 绑定内部回调，用于将 MQTT 底层事件转换为 Manager 状态更新
     mqtt_cfg.event_cb      = web_mqtt_manager_on_mqtt_event;
-    mqtt_cfg.message_cb    = NULL; // 当前 Manager 层不直接处理消息，可由上层通过 mqtt_module_register_... 扩展
+    mqtt_cfg.message_cb    = s_mgr_cfg.message_cb; // 透传上层设置的消息回调
 
     /* 初始化底层 MQTT 模块 */
     esp_err_t ret = mqtt_module_init(&mqtt_cfg);

@@ -82,6 +82,16 @@ typedef struct {
     int                  reconnect_interval_ms; ///< 连接失败后自动重连间隔(ms)；<0 表示关闭自动重连
     int                  step_interval_ms;      ///< 状态机运行周期（ms），<=0 使用 WEB_MQTT_MANAGER_STEP_INTERVAL_MS
     web_mqtt_event_cb_t  event_cb;              ///< 状态及重要事件回调，可为 NULL 表示不关心
+    
+    /**
+     * @brief 消息接收回调
+     * 
+     * @param topic       Topic 字符串
+     * @param topic_len   Topic 长度
+     * @param payload     Payload 数据
+     * @param payload_len Payload 长度
+     */
+    void (*message_cb)(const char *topic, int topic_len, const uint8_t *payload, int payload_len);
 } web_mqtt_manager_config_t;
 
 /**

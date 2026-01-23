@@ -19,4 +19,5 @@ idf_component_register(
         xn_event_bus
         xn_state_machine
         esp_driver_gpio
+        xn_iot_manager_mqtt
 )
