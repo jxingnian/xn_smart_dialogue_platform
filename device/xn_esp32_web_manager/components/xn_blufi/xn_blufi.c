@@ -2,7 +2,7 @@
  * @Author: xingnian jixingnian@gmail.com
  * @Date: 2026-01-22 19:45:40
  * @LastEditors: xingnian jixingnian@gmail.com
- * @LastEditTime: 2026-01-23 13:40:00
+ * @LastEditTime: 2026-01-23 15:48:32
  * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\components\xn_blufi\xn_blufi.c
  * @Description: BluFi蓝牙配网组件 - 实现 (Refactored)
  * VX:Jxingnian
@@ -41,76 +41,116 @@ static xn_blufi_t *g_blufi_instance = NULL; // 全局单例指针
 
 /* ---------------- Internal Helpers ---------------- */
 
-// BluFi事件内部回调
+// BluFi事件内部回调 - 处理底层BluFi协议栈的各种事件
 static void blufi_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param)
 {
     xn_blufi_t *blufi = g_blufi_instance;
+    // 如果实例已被销毁，不再处理事件
     if (blufi == NULL) return;
 
     switch (event) {
     case ESP_BLUFI_EVENT_INIT_FINISH:
+        // BluFi协议栈初始化完成，开始广播以允许手机搜索连接
         ESP_LOGI(TAG, "BLUFI init finish, start adv");
         esp_blufi_adv_start();
         break;
+
     case ESP_BLUFI_EVENT_DEINIT_FINISH:
+        // BluFi协议栈反初始化完成，资源已释放
         ESP_LOGI(TAG, "BLUFI deinit finish");
         break;
+
     case ESP_BLUFI_EVENT_BLE_CONNECT:
+        // 手机APP已建立BLE连接
         ESP_LOGI(TAG, "BLUFI ble connect");
+        // 更新内部连接状态标志
         blufi->ble_connected = true;
+        // 连接建立后停止广播，此时不可被其他设备搜索到
         esp_blufi_adv_stop();
         break;
+
     case ESP_BLUFI_EVENT_BLE_DISCONNECT:
+        // 手机APP断开BLE连接
         ESP_LOGI(TAG, "BLUFI ble disconnect");
+        // 更新内部连接状态标志
         blufi->ble_connected = false;
+        
+        // 触发应用层回调，通知上层“蓝牙断开”，以便执行如“退出配网模式”等逻辑
+        if (blufi->callbacks.on_ble_disconnect) {
+            blufi->callbacks.on_ble_disconnect(blufi);
+        }
+        
+        // 断开后重新开启广播，允许再次连接（除非上层随后调用了stop）
         esp_blufi_adv_start();
         break;
+
     case ESP_BLUFI_EVENT_RECV_STA_SSID:
-        // 收到SSID，拷贝到缓存
+        // 从手机接收到WiFi SSID数据包
+        // 将数据拷贝到临时缓冲区 pending_ssid 中，等待后续处理
         strncpy(blufi->pending_ssid, (char *)param->sta_ssid.ssid, param->sta_ssid.ssid_len);
+        // 确保字符串手动截断，防止溢出
         blufi->pending_ssid[param->sta_ssid.ssid_len] = '\0';
         ESP_LOGI(TAG, "Recv STA SSID: %s", blufi->pending_ssid);
         break;
+
     case ESP_BLUFI_EVENT_RECV_STA_PASSWD:
-        // 收到密码，拷贝到缓存
+        // 从手机接收到WiFi Password数据包
+        // 将数据拷贝到临时缓冲区 pending_password 中
         strncpy(blufi->pending_password, (char *)param->sta_passwd.passwd, param->sta_passwd.passwd_len);
         blufi->pending_password[param->sta_passwd.passwd_len] = '\0';
         ESP_LOGI(TAG, "Recv STA PASSWORD");
         break;
+
     case ESP_BLUFI_EVENT_REQ_CONNECT_TO_AP:
+        // 手机发送“连接AP”请求（通常在发送完SSID和密码后）
         ESP_LOGI(TAG, "Req Connect to AP");
-        // 触发接收配置和连接请求的回调
+        
+        // 1. 调用 on_recv_sta_config 回调，将缓存的 SSID/PWD 传递给应用层保存或使用
         if (blufi->callbacks.on_recv_sta_config) {
             blufi->callbacks.on_recv_sta_config(blufi, blufi->pending_ssid, blufi->pending_password);
         }
+        
+        // 2. 调用 on_connect_request 回调，通知应用层开始执行连接操作
         if (blufi->callbacks.on_connect_request) {
             blufi->callbacks.on_connect_request(blufi);
         }
         break;
+
     case ESP_BLUFI_EVENT_REQ_DISCONNECT_FROM_AP:
+        // 手机发送“断开WiFi”请求
         ESP_LOGI(TAG, "Req Disconnect from AP");
+        // 通知应用层执行断网操作
         if (blufi->callbacks.on_disconnect_request) {
             blufi->callbacks.on_disconnect_request(blufi);
         }
         break;
+
     case ESP_BLUFI_EVENT_GET_WIFI_LIST:
+        // 手机请求获取周围WiFi列表（扫码结果）
         ESP_LOGI(TAG, "Req Get WiFi List");
+        // 通知应用层执行WiFi扫描，扫描结果需通过 xn_blufi_send_wifi_list 返回
         if (blufi->callbacks.on_scan_request) {
             blufi->callbacks.on_scan_request(blufi);
         }
         break;
+
     case ESP_BLUFI_EVENT_RECV_CUSTOM_DATA:
+        // 接收到用户自定义数据（非标准Blufi协议数据）
         ESP_LOGI(TAG, "Recv Custom Data len=%d", param->custom_data.data_len);
+        // 透传给应用层进行解析处理
         if (blufi->callbacks.on_recv_custom_data) {
             blufi->callbacks.on_recv_custom_data(blufi, param->custom_data.data, param->custom_data.data_len);
         }
         break;
+
     case ESP_BLUFI_EVENT_GET_WIFI_STATUS:
-        // 手机请求查询当前WiFi状态
+        // 手机请求查询当前设备WiFi连接状态
+        // 此时应用层应检查连接状态并调用 xn_blufi_send_connect_report回复
         if (blufi->callbacks.on_request_wifi_status) {
             blufi->callbacks.on_request_wifi_status(blufi);
         }
         break;
+
     default:
         break;
     }
@@ -207,8 +247,6 @@ esp_err_t xn_blufi_init(xn_blufi_t *blufi, xn_blufi_callbacks_t *callbacks)
 esp_err_t xn_blufi_deinit(xn_blufi_t *blufi)
 {
     esp_blufi_gatt_svr_deinit();
-    nimble_port_stop();
-    nimble_port_deinit();
     esp_nimble_deinit();
     esp_blufi_profile_deinit();
     esp_blufi_btc_deinit();

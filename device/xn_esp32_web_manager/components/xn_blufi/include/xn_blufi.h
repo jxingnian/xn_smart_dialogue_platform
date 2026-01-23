@@ -66,6 +66,12 @@ typedef struct {
      */
     void (*on_request_wifi_status)(xn_blufi_t *blufi);
 
+    /**
+     * @brief 蓝牙断开连接回调
+     * @param blufi 实例指针
+     */
+    void (*on_ble_disconnect)(xn_blufi_t *blufi);
+
 } xn_blufi_callbacks_t; // BluFi回调结构体类型定义
 
 /**

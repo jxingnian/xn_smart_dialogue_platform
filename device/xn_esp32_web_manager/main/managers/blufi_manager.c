@@ -2,7 +2,7 @@
  * @Author: xingnian jixingnian@gmail.com
  * @Date: 2026-01-22 19:45:40
  * @LastEditors: xingnian jixingnian@gmail.com
- * @LastEditTime: 2026-01-23 13:36:22
+ * @LastEditTime: 2026-01-23 15:50:32
  * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\main\managers\blufi_manager.c
  * @Description: BluFi配网应用管理器实现 - 实现回调逻辑，解耦底层
  * VX:Jxingnian
@@ -146,6 +146,20 @@ static void on_request_wifi_status(xn_blufi_t *blufi)
     xn_blufi_send_connect_report(connected, NULL, 0);
 }
 
+// 蓝牙断开回调
+static void on_ble_disconnect(xn_blufi_t *blufi)
+{
+    ESP_LOGI(TAG, "BluFi BLE disconnected");
+    // 检查WiFi是否已连接
+    if (wifi_manager_is_connected()) {
+        ESP_LOGI(TAG, "WiFi connected, exiting BluFi mode");
+        // 发送配网成功事件，退出配网模式
+        xn_event_post(XN_EVT_BLUFI_CONFIG_DONE, XN_EVT_SRC_BLUFI);
+    } else {
+        ESP_LOGI(TAG, "WiFi not connected, staying in BluFi mode (or restarting adv by component)");
+    }
+}
+
 // BluFi组件回调结构体
 static xn_blufi_callbacks_t s_blufi_callbacks = {
     .on_recv_sta_config = on_recv_sta_config,
@@ -154,6 +168,7 @@ static xn_blufi_callbacks_t s_blufi_callbacks = {
     .on_scan_request = on_scan_request,
     .on_recv_custom_data = on_recv_custom_data,
     .on_request_wifi_status = on_request_wifi_status,
+    .on_ble_disconnect = on_ble_disconnect,
 };
 
 /*===========================================================================
@@ -182,12 +197,10 @@ static void system_event_handler(const xn_event_t *event, void *user_data)
         // 延时一会后停止配网，给手机端一点时间接收报告
         // 实际工程中可能需要定时器，这里简单发个事件自我停止，或者让FSM控制
         // 这里的逻辑是：配网成功 -> Report -> Stop
-        
-        // 发送配网成功事件
-         xn_event_post(XN_EVT_BLUFI_CONFIG_DONE, XN_EVT_SRC_BLUFI);
-         
-         // 注意：Stop 在 FSM 状态转换中处理 (on_exit_blufi_config)，或者此处主动调用
-         // 推荐 FSM 处理
+                 
+         // NEW LOGIC: 等待蓝牙断开回调 (on_ble_disconnect) 再发送 DONE 事件
+         ESP_LOGI(TAG, "Waiting for BLE disconnect to exit BluFi mode...");
+
     } else if (event->id == XN_EVT_WIFI_DISCONNECTED) {
         // 如果正在连接中失败
          xn_blufi_send_connect_report(false, NULL, 0);
