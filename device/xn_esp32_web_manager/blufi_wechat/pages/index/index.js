@@ -5,30 +5,30 @@ Page({
   data: {
     // 蓝牙状态
     bluetoothEnabled: false,
-    
+
     // 扫描状态
     scanning: false,
     devices: [],
-    
+
     // 连接状态
     connected: false,
     connectedDevice: null,
-    
+
     // 设备WiFi状态
     deviceWifiStatus: null,  // {connected, ssid, password, opmode, ...}
-    
+
     // 存储的WiFi配置
     storedConfig: null,  // {exists, ssid, password}
-    
+
     // WiFi列表
     wifiList: [],
     selectedWifi: null,
     wifiPassword: '',
-    
+
     // 配网状态
     configuring: false,
     configResult: '',
-    
+
     // 当前视图 (scan:扫描设备, status:设备状态管理)
     currentView: 'scan'
   },
@@ -36,22 +36,22 @@ Page({
   onLoad() {
     // 初始化 BluFi 协议实例
     this.blufi = new BluFiProtocol()
-    
+
     // 注册回调
     this.blufi.on('onWifiList', (wifiList) => {
       console.log('收到WiFi列表:', wifiList)
       this.setData({ wifiList: wifiList })
       wx.hideLoading()
     })
-    
+
     this.blufi.on('onWifiStatus', (status) => {
       console.log('收到WiFi状态:', status)
-      this.setData({ 
+      this.setData({
         deviceWifiStatus: status,
         configuring: false
       })
       wx.hideLoading()
-      
+
       // 如果正在配网，显示结果
       if (this.data.configuring) {
         if (status.connected) {
@@ -63,13 +63,13 @@ Page({
         }
       }
     })
-    
+
     this.blufi.on('onStoredConfig', (data) => {
       console.log('收到存储的WiFi配置:', data)
       this.setData({ storedConfig: data })
       wx.hideLoading()
     })
-    
+
     this.blufi.on('onConfigDeleted', () => {
       console.log('配置已删除，刷新列表')
       // 删除成功后重新获取配置列表
@@ -77,25 +77,25 @@ Page({
         this.getStoredConfig()
       }, 500)
     })
-    
+
     this.blufi.on('onError', (errorCode) => {
       console.error('BluFi错误:', errorCode)
       wx.hideLoading()
       wx.showToast({ title: '操作失败', icon: 'none' })
     })
-    
+
     // 监听蓝牙断开
     this.blufi.on('onDisconnected', () => {
       console.log('蓝牙连接已断开')
-      
+
       // 如果当前是已连接状态，显示断开提示
       if (this.data.connected) {
-        wx.showToast({ 
-          title: '蓝牙已断开', 
+        wx.showToast({
+          title: '蓝牙已断开',
           icon: 'none',
           duration: 2000
         })
-        
+
         // 重置状态
         this.setData({
           connected: false,
@@ -107,14 +107,14 @@ Page({
           configResult: null,
           currentView: 'scan'
         })
-        
+
         // 重新开始扫描
         setTimeout(() => {
           this.startScan()
         }, 1000)
       }
     })
-    
+
     this.checkBluetoothStatus()
   },
 
@@ -150,8 +150,8 @@ Page({
   // ========== 设备扫描 ==========
   startScan() {
     if (this.data.scanning) return
-    
-    this.setData({ 
+
+    this.setData({
       scanning: true,
       devices: []
     })
@@ -162,21 +162,21 @@ Page({
       allowDuplicatesKey: false,
       success: () => {
         console.log('开始扫描蓝牙设备')
-        
+
         wx.onBluetoothDeviceFound((res) => {
           res.devices.forEach((device) => {
             const name = device.name || device.localName
-            
-            // 只添加ESP32开头的设备，提高扫描效率
-            if (name && name.toUpperCase().startsWith('ESP32')) {
+
+            // Allow both ESP32 and XN_ prefix
+            if (name && (name.toUpperCase().startsWith('ESP32') || name.toUpperCase().startsWith('XN_'))) {
               const devices = this.data.devices
               const index = devices.findIndex(d => d.deviceId === device.deviceId)
-              
+
               if (index === -1) {
                 device.name = name
                 devices.push(device)
                 this.setData({ devices })
-                console.log('发现ESP32设备:', name, device.deviceId)
+                console.log('Found Device:', name, device.deviceId)
               }
             }
           })
@@ -200,7 +200,7 @@ Page({
     wx.stopBluetoothDevicesDiscovery()
     wx.hideLoading()
     this.setData({ scanning: false })
-    
+
     if (this.data.devices.length === 0) {
       wx.showToast({ title: '未发现设备', icon: 'none' })
     }
@@ -213,7 +213,7 @@ Page({
   // ========== 设备连接 ==========
   connectDevice(e) {
     const device = e.currentTarget.dataset.device
-    
+
     wx.showLoading({ title: '连接中...' })
 
     this.blufi.connect(device.deviceId)
@@ -226,7 +226,7 @@ Page({
         })
         wx.hideLoading()
         wx.showToast({ title: '连接成功', icon: 'success' })
-        
+
         // 自动获取设备WiFi状态
         this.refreshDeviceStatus()
       })
@@ -259,7 +259,7 @@ Page({
   // ========== 设备状态管理 ==========
   refreshDeviceStatus() {
     wx.showLoading({ title: '获取状态...' })
-    
+
     // 同时获取WiFi状态和存储的配置
     Promise.all([
       this.blufi.requestWifiStatus(),
@@ -284,7 +284,7 @@ Page({
   deleteStoredConfig(e) {
     const index = e.currentTarget.dataset.index
     const ssid = e.currentTarget.dataset.ssid
-    
+
     wx.showModal({
       title: '确认',
       content: `确定要删除配置"${ssid}"吗？`,
@@ -310,7 +310,7 @@ Page({
       content: `使用配置"${config.ssid}"连接WiFi？`,
       success: (res) => {
         if (res.confirm) {
-          this.setData({ 
+          this.setData({
             configuring: true,
             configResult: ''
           })
@@ -345,7 +345,7 @@ Page({
   // 选择WiFi
   selectWifi(e) {
     const wifi = e.currentTarget.dataset.wifi
-    this.setData({ 
+    this.setData({
       selectedWifi: wifi,
       wifiPassword: ''
     })
@@ -368,7 +368,7 @@ Page({
       return
     }
 
-    this.setData({ 
+    this.setData({
       configuring: true,
       configResult: ''
     })
@@ -417,7 +417,7 @@ Page({
   switchView(e) {
     const view = e.currentTarget.dataset.view
     this.setData({ currentView: view })
-    
+
     if (view === 'scan') {
       this.startScan()
     }
@@ -426,14 +426,14 @@ Page({
   // 页面卸载时清理资源
   onUnload() {
     console.log('页面卸载，清理蓝牙连接')
-    
+
     // 断开蓝牙连接
     if (this.blufi && this.data.connected) {
       this.blufi.disconnect().catch(err => {
         console.error('断开连接失败:', err)
       })
     }
-    
+
     // 关闭蓝牙适配器
     wx.closeBluetoothAdapter({
       success: () => {
