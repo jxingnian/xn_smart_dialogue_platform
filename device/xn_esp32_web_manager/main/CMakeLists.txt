@@ -5,6 +5,7 @@ idf_component_register(
         "managers/wifi_manager.c"
         "managers/mqtt_manager.c"
         "managers/blufi_manager.c"
+        "managers/button_manager.c"
     INCLUDE_DIRS 
         "."
     REQUIRES 
@@ -17,4 +18,5 @@ idf_component_register(
         mqtt
         xn_event_bus
         xn_state_machine
+        esp_driver_gpio
 )

@@ -2,7 +2,7 @@
  * @Author: xingnian jixingnian@gmail.com
  * @Date: 2026-01-22 19:45:40
  * @LastEditors: xingnian jixingnian@gmail.com
- * @LastEditTime: 2026-01-23 09:41:00
+ * @LastEditTime: 2026-01-23 09:53:53
  * @FilePath: \xn_smart_dialogue_platform\device\xn_esp32_web_manager\main\app_state_machine.c
  * @Description: 应用顶层状态机实现 - 负责系统核心业务流程控制
  * VX:Jxingnian
@@ -208,6 +208,8 @@ static const xn_fsm_transition_t s_transitions[] = {
     {APP_STATE_WIFI_CONNECTING, XN_EVT_WIFI_CONNECTED,      APP_STATE_WIFI_CONNECTED,   NULL, NULL},
     // 在连接过程中，用户强制启动配网 -> 进入配网模式
     {APP_STATE_WIFI_CONNECTING, XN_CMD_BLUFI_START,         APP_STATE_BLUFI_CONFIG,     NULL, NULL},
+    // 在连接过程中，用户长按Boot键 -> 进入配网模式
+    {APP_STATE_WIFI_CONNECTING, XN_EVT_BUTTON_LONG_PRESS,   APP_STATE_BLUFI_CONFIG,     NULL, NULL},
     
     // ============================================================
     // IP 获取与网络层
@@ -217,6 +219,8 @@ static const xn_fsm_transition_t s_transitions[] = {
     {APP_STATE_WIFI_CONNECTED,  XN_EVT_WIFI_GOT_IP,         APP_STATE_MQTT_CONNECTING,  NULL, NULL},
     // IP 获取还没完成就断开了 -> 重新连接 WiFi
     {APP_STATE_WIFI_CONNECTED,  XN_EVT_WIFI_DISCONNECTED,   APP_STATE_WIFI_CONNECTING,  NULL, NULL},
+    // 在获取IP过程中，用户长按Boot键 -> 进入配网模式
+    {APP_STATE_WIFI_CONNECTED,  XN_EVT_BUTTON_LONG_PRESS,   APP_STATE_BLUFI_CONFIG,     NULL, NULL},
     
     // ============================================================
     // MQTT 连接流程
@@ -226,6 +230,8 @@ static const xn_fsm_transition_t s_transitions[] = {
     {APP_STATE_MQTT_CONNECTING, XN_EVT_MQTT_CONNECTED,      APP_STATE_READY,            NULL, NULL},
     // 如果在连接 MQTT 过程中 WiFi 掉了 -> 回退到 WiFi 连接
     {APP_STATE_MQTT_CONNECTING, XN_EVT_WIFI_DISCONNECTED,   APP_STATE_WIFI_CONNECTING,  NULL, NULL},
+    // 在连接MQTT过程中，用户长按Boot键 -> 进入配网模式
+    {APP_STATE_MQTT_CONNECTING, XN_EVT_BUTTON_LONG_PRESS,   APP_STATE_BLUFI_CONFIG,     NULL, NULL},
     
     // ============================================================
     // 系统就绪状态 (稳定态)
@@ -236,7 +242,8 @@ static const xn_fsm_transition_t s_transitions[] = {
     // 仅 MQTT 掉线 (WiFi还在) -> 重新连接 MQTT
     {APP_STATE_READY,           XN_EVT_MQTT_DISCONNECTED,   APP_STATE_MQTT_CONNECTING,  NULL, NULL},
     // 在就绪状态下，用户强制配网 -> 进入配网模式
-    {APP_STATE_READY,           XN_CMD_BLUFI_START,         APP_STATE_BLUFI_CONFIG,     NULL, NULL},
+    // REMOVED: 需求变更为仅联网阶段可配网
+    // {APP_STATE_READY,           XN_CMD_BLUFI_START,         APP_STATE_BLUFI_CONFIG,     NULL, NULL},
     
     // ============================================================
     // 配网模式

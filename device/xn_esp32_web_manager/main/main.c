@@ -20,7 +20,9 @@
 #include "app_state_machine.h"
 #include "managers/wifi_manager.h"
 #include "managers/mqtt_manager.h"
+#include "managers/mqtt_manager.h"
 #include "managers/blufi_manager.h"
+#include "managers/button_manager.h"
 
 // 模块日志标签
 static const char *TAG = "main";
@@ -92,6 +94,9 @@ void app_main(void)
     ESP_ERROR_CHECK(blufi_manager_init());
     // 打印BluFi管理器初始化成功日志
     ESP_LOGI(TAG, "BluFi manager initialized");
+
+    // 初始化按键管理器
+    ESP_ERROR_CHECK(button_manager_init());
     
     // 初始化应用状态机
     ESP_ERROR_CHECK(app_state_machine_init());
