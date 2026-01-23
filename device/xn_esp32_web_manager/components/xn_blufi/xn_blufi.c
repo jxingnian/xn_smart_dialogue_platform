@@ -85,14 +85,7 @@ struct xn_blufi_s {
 // 全局实例指针，因为BluFi回调是全局的
 static xn_blufi_t *g_blufi_instance = NULL;
 
-/* 获取当前待连接的WiFi配置（内部使用） */
-static void xn_blufi_get_pending_config(xn_blufi_t *blufi, char *ssid, char *password)
-{
-    if (blufi && ssid && password) {
-        strncpy(ssid, blufi->pending_ssid, 32);
-        strncpy(password, blufi->pending_password, 64);
-    }
-}
+
 
 /* NimBLE重置回调 */
 void xn_blufi_on_reset(int reason)

@@ -200,9 +200,20 @@ esp_err_t xn_wifi_manager_init(xn_wifi_manager_t *manager)
     }
     
     // 初始化网络接口
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    esp_err_t ret = esp_netif_init();
+    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(TAG, "esp_netif_init failed: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    ret = esp_event_loop_create_default();
+    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(TAG, "esp_event_loop_create_default failed: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
     // 创建默认的WiFi Station网络接口
+    // 如果由于其他模块已经创建过，这里返回已存在的指针，也是安全的
     manager->netif = esp_netif_create_default_wifi_sta();
     
     // 注册WiFi和IP事件处理函数
@@ -213,11 +224,21 @@ esp_err_t xn_wifi_manager_init(xn_wifi_manager_t *manager)
     
     // 初始化WiFi配置
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+    ret = esp_wifi_init(&cfg);
+    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(TAG, "esp_wifi_init failed: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
     // 设置为Station模式
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    
     // 启动WiFi
-    ESP_ERROR_CHECK(esp_wifi_start());
+    ret = esp_wifi_start();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "esp_wifi_start failed: %s", esp_err_to_name(ret));
+        return ret;
+    }
     
     ESP_LOGI(TAG, "WiFi管理器初始化成功");
     return ESP_OK;
@@ -230,11 +251,15 @@ esp_err_t xn_wifi_manager_deinit(xn_wifi_manager_t *manager)
         return ESP_ERR_INVALID_ARG;
     }
     
-    // 停止WiFi
-    esp_wifi_stop();
-    // 反初始化WiFi驱动
-    esp_wifi_deinit();
+    // 停止WiFi (可选，取决于业务逻辑，如果只是退出配网可以不停止，但通常配网结束后会重连)
+    // 这里我们只做断开操作，不完全停止，以免影响主程序的各种状态维持，或者让主程序接管停止
+    // 但是blufi_manager退出BLUFI_CONFIG后，主程序会接管并connect。
+    // 如果这里stop，主程序因为还没接管，Wifi就停了。
+    // esp_wifi_stop(); // REMOVED: 不要停止WiFi，因为主程序可能依赖它，或者主程序负责重启它
     
+    // 反初始化WiFi驱动
+    // esp_wifi_deinit(); // REMOVED: 绝对不能反初始化驱动，因为主程序只init了一次
+
     // 注销事件处理函数
     esp_event_handler_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler);
     esp_event_handler_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler);
