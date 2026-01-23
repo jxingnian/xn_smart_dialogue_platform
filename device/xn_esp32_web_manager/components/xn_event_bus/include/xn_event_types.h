@@ -69,6 +69,7 @@ typedef enum {
     XN_EVT_WIFI_DISCONNECTED    = 0x0104,   ///< WiFi已断开连接（携带 xn_evt_wifi_disconnected_t）
     XN_EVT_WIFI_GOT_IP          = 0x0105,   ///< 已获取IP地址（携带 xn_evt_wifi_got_ip_t）
     XN_EVT_WIFI_LOST_IP         = 0x0106,   ///< 丢失IP地址
+    XN_EVT_WIFI_PROV_REQUIRED   = 0x0107,   ///< 需要进行配网（无配置或连接失败）
     XN_EVT_WIFI_SCAN_DONE       = 0x0110,   ///< WiFi扫描完成
 } xn_event_wifi_t;
 

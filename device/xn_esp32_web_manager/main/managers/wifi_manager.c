@@ -224,7 +224,8 @@ static void load_and_connect_best_wifi(void)
     xn_storage_get_u8(NVS_KEY_WIFI_COUNT, &count);
     
     if (count == 0) {
-        ESP_LOGW(TAG, "No saved WiFi config found");
+        ESP_LOGW(TAG, "No saved WiFi config found, requesting provisioning...");
+        xn_event_post(XN_EVT_WIFI_PROV_REQUIRED, XN_EVT_SRC_WIFI);
         return;
     }
 

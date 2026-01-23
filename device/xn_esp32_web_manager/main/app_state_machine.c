@@ -210,6 +210,8 @@ static const xn_fsm_transition_t s_transitions[] = {
     {APP_STATE_WIFI_CONNECTING, XN_CMD_BLUFI_START,         APP_STATE_BLUFI_CONFIG,     NULL, NULL},
     // 在连接过程中，用户长按Boot键 -> 进入配网模式
     {APP_STATE_WIFI_CONNECTING, XN_EVT_BUTTON_LONG_PRESS,   APP_STATE_BLUFI_CONFIG,     NULL, NULL},
+    // 无配置或需要配网 -> 进入配网模式
+    {APP_STATE_WIFI_CONNECTING, XN_EVT_WIFI_PROV_REQUIRED,  APP_STATE_BLUFI_CONFIG,     NULL, NULL},
     
     // ============================================================
     // IP 获取与网络层
