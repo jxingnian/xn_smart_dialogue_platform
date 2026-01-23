@@ -85,8 +85,12 @@ void app_main(void)
     // 打印WiFi管理器初始化成功日志
     ESP_LOGI(TAG, "WiFi manager initialized");
     
+    // 配置MQTT管理器
+    mqtt_manager_config_t mqtt_cfg = MQTT_MANAGER_DEFAULT_CONFIG(); // 使用默认配置
+    mqtt_cfg.broker_uri = "mqtt://broker.emqx.io:1883";             // 设置MQTT Broker地址
+    mqtt_cfg.base_topic = "xn/device";                              // 设置项目基础Topic
     // 初始化MQTT管理器
-    ESP_ERROR_CHECK(mqtt_manager_init());
+    ESP_ERROR_CHECK(mqtt_manager_init(&mqtt_cfg));
     // 打印MQTT管理器初始化成功日志
     ESP_LOGI(TAG, "MQTT manager initialized");
     
