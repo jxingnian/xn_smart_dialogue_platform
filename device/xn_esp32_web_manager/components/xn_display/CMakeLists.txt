@@ -1,0 +1,12 @@
+idf_component_register(
+    SRCS 
+        "src/xn_display.c"
+        "src/lcd_st7789.c"
+    INCLUDE_DIRS 
+        "include"
+    PRIV_REQUIRES
+        driver
+        esp_timer
+        esp_lcd
+        lvgl
+)

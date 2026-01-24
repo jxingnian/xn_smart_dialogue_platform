@@ -167,6 +167,10 @@ typedef enum {
     XN_CMD_MQTT_PUBLISH         = 0x0812,   ///< 请求发布MQTT消息
     XN_CMD_BLUFI_START          = 0x0820,   ///< 请求启动BluFi
     XN_CMD_BLUFI_STOP           = 0x0821,   ///< 请求停止BluFi
+    XN_CMD_DISPLAY_SHOW_PAGE    = 0x0830,   ///< 请求显示页面
+    XN_CMD_DISPLAY_UPDATE       = 0x0831,   ///< 请求更新显示
+    XN_CMD_DISPLAY_TOAST        = 0x0832,   ///< 请求显示Toast
+    XN_CMD_DISPLAY_BRIGHTNESS   = 0x0833,   ///< 请求设置亮度
 } xn_event_cmd_t;
 
 /*===========================================================================
@@ -191,6 +195,21 @@ typedef struct {
     uint8_t button_id;      ///< 按键ID
     uint32_t duration_ms;   ///< 按下持续时间(ms)
 } xn_evt_button_t;
+
+/*===========================================================================
+ *                          显示事件 (0x0700 - 0x07FF)
+ *===========================================================================*/
+
+/**
+ * @brief 显示事件ID定义
+ */
+typedef enum {
+    XN_EVT_DISPLAY_INIT_DONE    = 0x0701,   ///< 显示初始化完成
+    XN_EVT_DISPLAY_ERROR        = 0x0702,   ///< 显示错误
+    XN_EVT_DISPLAY_SLEEP        = 0x0703,   ///< 显示进入休眠
+    XN_EVT_DISPLAY_WAKEUP       = 0x0704,   ///< 显示唤醒
+    XN_EVT_DISPLAY_TOUCH        = 0x0710,   ///< 触摸事件
+} xn_event_display_t;
 
 /*===========================================================================
  *                          特殊标识
