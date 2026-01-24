@@ -1,0 +1,12 @@
+{
+    "uiExportFolderPath": "C:\\XingNian\\esp32\\xn_smart_dialogue_platform\\device\\xn_esp32_web_manager\\lvgl\\ui",
+    "projectExportFolderPath": "C:\\XingNian\\esp32\\xn_smart_dialogue_platform\\device\\xn_esp32_web_manager\\lvgl",
+    "drive_stdio": "-",
+    "drive_stdio_path": "",
+    "drive_posix": "-",
+    "drive_posix_path": "",
+    "drive_win32": "-",
+    "drive_win32_path": "",
+    "drive_fatfs": "-",
+    "drive_fatfs_path": ""
+}
