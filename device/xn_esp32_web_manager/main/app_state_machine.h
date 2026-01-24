@@ -30,6 +30,9 @@ typedef enum {
     APP_STATE_INIT = 0,         ///< 初始化中：系统启动，各种初始化
     APP_STATE_WIFI_CONNECTING,  ///< WiFi连接中：尝试连接WiFi AP
     APP_STATE_WIFI_CONNECTED,   ///< WiFi已连接：物理层/链路层已连上，等待DHCP获取IP
+    APP_STATE_OTA_CHECKING,     ///< OTA检查中：检查固件更新和设备认证
+    APP_STATE_OTA_ACTIVATING,   ///< OTA激活中：设备激活流程
+    APP_STATE_OTA_UPGRADING,    ///< OTA升级中：固件升级流程
     APP_STATE_MQTT_CONNECTING,  ///< MQTT连接中：已获取IP，正在尝试连接MQTT Broker
     APP_STATE_READY,            ///< 系统就绪：MQTT已连接，可以正常收发业务数据
     APP_STATE_BLUFI_CONFIG,     ///< BluFi配网模式：启动蓝牙配网服务，等待用户配置WiFi信息

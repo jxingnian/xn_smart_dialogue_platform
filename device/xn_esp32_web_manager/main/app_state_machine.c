@@ -19,6 +19,7 @@
 #include "managers/wifi_manager.h"
 #include "managers/mqtt_manager.h"
 #include "managers/blufi_manager.h"
+#include "managers/ota_manager.h"
 
 // 状态机TAG，用于日志输出
 static const char *TAG = "app_fsm";
@@ -90,10 +91,59 @@ static void on_enter_wifi_connected(xn_fsm_t *fsm, void *user_data)
 }
 
 /**
+ * @brief 进入 OTA_CHECKING 状态动作
+ * 
+ * 前置条件：
+ * - WiFi 已连接且已获取 IP 地址
+ * 
+ * 逻辑：
+ * 启动 OTA Manager，执行以下流程：
+ * 1. 标记当前固件为有效
+ * 2. 检查设备认证状态
+ * 3. 检查固件更新
+ */
+static void on_enter_ota_checking(xn_fsm_t *fsm, void *user_data)
+{
+    ESP_LOGI(TAG, "==> OTA_CHECKING state");
+    
+    // 启动 OTA Manager
+    esp_err_t ret = ota_manager_start();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "OTA manager start failed");
+        xn_event_post(XN_EVT_SYSTEM_ERROR, XN_EVT_SRC_SYSTEM);
+    }
+}
+
+/**
+ * @brief 进入 OTA_ACTIVATING 状态动作
+ * 
+ * 说明：
+ * 设备需要激活，等待用户在管理端确认或自动激活完成
+ */
+static void on_enter_ota_activating(xn_fsm_t *fsm, void *user_data)
+{
+    ESP_LOGI(TAG, "==> OTA_ACTIVATING state");
+    ESP_LOGI(TAG, "Device activation required, please check management console");
+}
+
+/**
+ * @brief 进入 OTA_UPGRADING 状态动作
+ * 
+ * 说明：
+ * 固件升级中，下载并安装新固件
+ */
+static void on_enter_ota_upgrading(xn_fsm_t *fsm, void *user_data)
+{
+    ESP_LOGI(TAG, "==> OTA_UPGRADING state");
+    ESP_LOGI(TAG, "Firmware upgrade in progress...");
+}
+
+/**
  * @brief 进入 MQTT_CONNECTING 状态动作
  * 
  * 前置条件：
  * - WiFi 已连接且已获取 IP 地址
+ * - OTA 检查完成（无需更新或已完成更新）
  * 
  * 逻辑：
  * 此时网络通道已就绪。MQTT Manager 应监听到 GOT_IP 事件并开始连接 Broker。
@@ -182,6 +232,9 @@ static const xn_fsm_state_t s_states[] = {
     {APP_STATE_INIT,            "INIT",             on_enter_init,              NULL, NULL},
     {APP_STATE_WIFI_CONNECTING, "WIFI_CONNECTING",  on_enter_wifi_connecting,   NULL, NULL},
     {APP_STATE_WIFI_CONNECTED,  "WIFI_CONNECTED",   on_enter_wifi_connected,    NULL, NULL},
+    {APP_STATE_OTA_CHECKING,    "OTA_CHECKING",     on_enter_ota_checking,      NULL, NULL},
+    {APP_STATE_OTA_ACTIVATING,  "OTA_ACTIVATING",   on_enter_ota_activating,    NULL, NULL},
+    {APP_STATE_OTA_UPGRADING,   "OTA_UPGRADING",    on_enter_ota_upgrading,     NULL, NULL},
     {APP_STATE_MQTT_CONNECTING, "MQTT_CONNECTING",  on_enter_mqtt_connecting,   NULL, NULL},
     {APP_STATE_READY,           "READY",            on_enter_ready,             NULL, NULL},
     {APP_STATE_BLUFI_CONFIG,    "BLUFI_CONFIG",     on_enter_blufi_config,      on_exit_blufi_config, NULL},
@@ -214,15 +267,45 @@ static const xn_fsm_transition_t s_transitions[] = {
     {APP_STATE_WIFI_CONNECTING, XN_EVT_WIFI_PROV_REQUIRED,  APP_STATE_BLUFI_CONFIG,     NULL, NULL},
     
     // ============================================================
-    // IP 获取与网络层
+    // IP 获取与 OTA 检查
     // ============================================================
     // 从 WIFI_CONNECTED
-    // 成功获取 IP -> 开始连接 MQTT
-    {APP_STATE_WIFI_CONNECTED,  XN_EVT_WIFI_GOT_IP,         APP_STATE_MQTT_CONNECTING,  NULL, NULL},
+    // 成功获取 IP -> 进入 OTA 检查
+    {APP_STATE_WIFI_CONNECTED,  XN_EVT_WIFI_GOT_IP,         APP_STATE_OTA_CHECKING,     NULL, NULL},
     // IP 获取还没完成就断开了 -> 重新连接 WiFi
     {APP_STATE_WIFI_CONNECTED,  XN_EVT_WIFI_DISCONNECTED,   APP_STATE_WIFI_CONNECTING,  NULL, NULL},
     // 在获取IP过程中，用户长按Boot键 -> 进入配网模式
     {APP_STATE_WIFI_CONNECTED,  XN_EVT_BUTTON_LONG_PRESS,   APP_STATE_BLUFI_CONFIG,     NULL, NULL},
+    
+    // ============================================================
+    // OTA 检查流程
+    // ============================================================
+    // 从 OTA_CHECKING
+    // OTA 检查完成，无需更新或认证 -> 连接 MQTT
+    {APP_STATE_OTA_CHECKING,    XN_EVT_SYSTEM_READY,        APP_STATE_MQTT_CONNECTING,  NULL, NULL},
+    // 需要设备激活 -> 进入激活状态
+    {APP_STATE_OTA_CHECKING,    XN_EVT_SYSTEM_INIT_DONE,    APP_STATE_OTA_ACTIVATING,   NULL, NULL},
+    // OTA 检查过程中 WiFi 掉线 -> 重新连接 WiFi
+    {APP_STATE_OTA_CHECKING,    XN_EVT_WIFI_DISCONNECTED,   APP_STATE_WIFI_CONNECTING,  NULL, NULL},
+    
+    // ============================================================
+    // OTA 激活流程
+    // ============================================================
+    // 从 OTA_ACTIVATING
+    // 激活完成 -> 连接 MQTT
+    {APP_STATE_OTA_ACTIVATING,  XN_EVT_SYSTEM_READY,        APP_STATE_MQTT_CONNECTING,  NULL, NULL},
+    // 激活过程中 WiFi 掉线 -> 重新连接 WiFi
+    {APP_STATE_OTA_ACTIVATING,  XN_EVT_WIFI_DISCONNECTED,   APP_STATE_WIFI_CONNECTING,  NULL, NULL},
+    
+    // ============================================================
+    // OTA 升级流程
+    // ============================================================
+    // 从 OTA_UPGRADING
+    // 升级完成 -> 系统重启（由 OTA Manager 处理）
+    // 升级失败 -> 错误状态
+    {APP_STATE_OTA_UPGRADING,   XN_EVT_SYSTEM_ERROR,        APP_STATE_ERROR,            NULL, NULL},
+    // 升级过程中 WiFi 掉线 -> 错误状态
+    {APP_STATE_OTA_UPGRADING,   XN_EVT_WIFI_DISCONNECTED,   APP_STATE_ERROR,            NULL, NULL},
     
     // ============================================================
     // MQTT 连接流程

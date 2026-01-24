@@ -6,6 +6,7 @@ idf_component_register(
         "managers/mqtt_manager.c"
         "managers/blufi_manager.c"
         "managers/button_manager.c"
+        "managers/ota_manager.c"
     INCLUDE_DIRS 
         "."
     REQUIRES 
@@ -23,4 +24,8 @@ idf_component_register(
         xn_blufi
         xn_wifi
         xn_storage
+        xn_ota
+        esp_http_client
+        esp_https_ota
+        json
 )
