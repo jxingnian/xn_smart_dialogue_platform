@@ -15,7 +15,6 @@
 #include "esp_err.h"
 #include "lvgl.h"
 #include "driver/gpio.h"
-#include "driver/spi_master.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -30,13 +29,15 @@ extern "C" {
  */
 typedef enum {
     XN_DISPLAY_LCD_ST7789,      ///< ST7789 驱动（240x240/240x320）
-    XN_DISPLAY_LCD_ILI9341,     ///< ILI9341 驱动（240x320）
-    XN_DISPLAY_LCD_ST7735,      ///< ST7735 驱动（128x160）
 } xn_display_lcd_type_t;
 
 /**
- * @brief RGB 元素顺序
+ * @brief SPI 主机枚举
  */
+typedef enum {
+    XN_DISPLAY_SPI_HOST_2 = 1,  ///< SPI2_HOST
+    XN_DISPLAY_SPI_HOST_3 = 2,  ///< SPI3_HOST
+} xn_display_spi_host_t;
 typedef enum {
     XN_DISPLAY_RGB_ORDER_RGB,   ///< RGB 顺序
     XN_DISPLAY_RGB_ORDER_BGR,   ///< BGR 顺序
@@ -52,7 +53,7 @@ typedef struct {
     uint16_t height;                     ///< 屏幕高度
     
     // SPI 配置
-    spi_host_device_t spi_host;          ///< SPI 主机 (SPI2_HOST/SPI3_HOST)
+    int spi_host;                        ///< SPI 主机 (1=SPI2_HOST, 2=SPI3_HOST)
     int pin_mosi;                        ///< MOSI 引脚
     int pin_sclk;                        ///< SCLK 引脚
     int pin_cs;                          ///< CS 引脚 (GPIO_NUM_NC 表示不使用)
@@ -146,9 +147,9 @@ esp_err_t xn_display_sleep(bool sleep);
  * 
  * 用于直接操作 LVGL 显示对象
  * 
- * @return lv_disp_t* LVGL 显示对象指针，失败返回 NULL
+ * @return lv_display_t* LVGL 显示对象指针（LVGL 9.x），失败返回 NULL
  */
-lv_disp_t* xn_display_get_disp(void);
+lv_display_t* xn_display_get_disp(void);
 
 /**
  * @brief 锁定 LVGL（用于多线程访问）

@@ -23,6 +23,7 @@
 #include "managers/mqtt_manager.h"
 #include "managers/blufi_manager.h"
 #include "managers/button_manager.h"
+#include "managers/display_manager.h"
 
 // 模块日志标签
 static const char *TAG = "main";
@@ -80,6 +81,19 @@ void app_main(void)
     // 打印事件总线初始化成功日志
     ESP_LOGI(TAG, "Event bus initialized");
     
+    // 初始化应用状态机
+    ESP_ERROR_CHECK(app_state_machine_init());
+    ESP_LOGI(TAG, "App state machine initialized");
+    
+    // 初始化显示管理器
+    esp_err_t ret = display_manager_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize display manager: %s", esp_err_to_name(ret));
+        // 显示初始化失败不影响其他功能，继续运行
+    } else {
+        ESP_LOGI(TAG, "Display manager initialized");
+    }
+    
     // 初始化WiFi管理器
     ESP_ERROR_CHECK(wifi_manager_init());
     // 打印WiFi管理器初始化成功日志
@@ -101,9 +115,8 @@ void app_main(void)
 
     // 初始化按键管理器
     ESP_ERROR_CHECK(button_manager_init());
+    ESP_LOGI(TAG, "Button manager initialized");
     
-    // 初始化应用状态机
-    ESP_ERROR_CHECK(app_state_machine_init());
     // 启动应用状态机
     ESP_ERROR_CHECK(app_state_machine_start());
     // 打印状态机启动成功日志

@@ -47,7 +47,7 @@ esp_err_t lcd_st7789_init(
         .max_transfer_sz = config->width * config->height * sizeof(uint16_t),
     };
     
-    ret = spi_bus_initialize(config->spi_host, &buscfg, SPI_DMA_CH_AUTO);
+    ret = spi_bus_initialize((spi_host_device_t)config->spi_host, &buscfg, SPI_DMA_CH_AUTO);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to initialize SPI bus: %s", esp_err_to_name(ret));
         return ret;
@@ -67,7 +67,7 @@ esp_err_t lcd_st7789_init(
     ret = esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)config->spi_host, &io_config, out_io);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to create LCD IO: %s", esp_err_to_name(ret));
-        spi_bus_free(config->spi_host);
+        spi_bus_free((spi_host_device_t)config->spi_host);
         return ret;
     }
     
@@ -83,7 +83,7 @@ esp_err_t lcd_st7789_init(
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to create LCD panel: %s", esp_err_to_name(ret));
         esp_lcd_panel_io_del(*out_io);
-        spi_bus_free(config->spi_host);
+        spi_bus_free((spi_host_device_t)config->spi_host);
         return ret;
     }
     

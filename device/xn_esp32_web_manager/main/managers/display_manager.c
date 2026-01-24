@@ -13,12 +13,7 @@
 #include "xn_display.h"
 #include "xn_event_bus.h"
 #include "xn_event_types.h"
-#include "ui_init.h"
-#include "ui_home.h"
-#include "ui_wifi.h"
-#include "ui_status.h"
-#include "ui_settings.h"
-#include "ui_ota.h"
+#include "ui.h"  // SquareLine Studio 生成的 UI 头文件
 #include "esp_log.h"
 
 static const char *TAG = "display_mgr";
@@ -30,7 +25,7 @@ static const char *TAG = "display_mgr";
 typedef struct {
     bool initialized;                   ///< 初始化标志
     ui_page_t current_page;             ///< 当前页面
-    xn_event_subscriber_t event_sub;    ///< 事件订阅者
+    xn_event_handler_t event_handler;   ///< 事件处理函数
 } display_manager_ctx_t;
 
 static display_manager_ctx_t s_ctx = {0};
@@ -39,7 +34,7 @@ static display_manager_ctx_t s_ctx = {0};
  *                          内部函数声明
  *===========================================================================*/
 
-static void on_event_received(uint16_t event_id, void *event_data, void *user_data);
+static void on_event_received(const xn_event_t *event, void *user_data);
 static void handle_wifi_event(uint16_t event_id, void *event_data);
 static void handle_mqtt_event(uint16_t event_id, void *event_data);
 static void handle_system_event(uint16_t event_id, void *event_data);
@@ -64,7 +59,7 @@ esp_err_t display_manager_init(void)
     config.lcd_type = XN_DISPLAY_LCD_ST7789;
     config.width = 240;
     config.height = 320;
-    config.spi_host = SPI2_HOST;
+    config.spi_host = 1;  // SPI2_HOST
     config.pin_mosi = GPIO_NUM_47;
     config.pin_sclk = GPIO_NUM_48;
     config.pin_cs = GPIO_NUM_NC;
@@ -90,32 +85,17 @@ esp_err_t display_manager_init(void)
     
     // 2. 初始化 UI 系统
     ESP_LOGI(TAG, "Initializing UI...");
-    ret = ui_init();
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to initialize UI: %s", esp_err_to_name(ret));
-        xn_display_deinit();
-        return ret;
-    }
+    ui_init();  // SquareLine Studio 生成的初始化函数（返回 void）
     
-    // 3. 创建所有 UI 页面
-    ESP_LOGI(TAG, "Creating UI pages...");
-    ui_home_create();
-    ui_wifi_create();
-    ui_status_create();
-    ui_settings_create();
-    ui_ota_create();
-    
-    // 4. 订阅事件总线
-    s_ctx.event_sub.callback = on_event_received;
-    s_ctx.event_sub.user_data = NULL;
-    ret = xn_event_subscribe(XN_EVT_ANY, &s_ctx.event_sub);
+    // 3. 订阅事件总线
+    ret = xn_event_subscribe(XN_EVT_ANY, on_event_received, NULL);
     if (ret != ESP_OK) {
         ESP_LOGW(TAG, "Failed to subscribe to events: %s", esp_err_to_name(ret));
     }
     
-    // 5. 显示主页面
+    // 4. 显示主页面（如果有）
+    // 注意：SquareLine Studio 会自动加载第一个屏幕
     s_ctx.current_page = UI_PAGE_HOME;
-    display_manager_show_page(UI_PAGE_HOME);
     
     s_ctx.initialized = true;
     
@@ -133,7 +113,7 @@ esp_err_t display_manager_deinit(void)
     ESP_LOGI(TAG, "Deinitializing display manager...");
     
     // 取消订阅事件
-    xn_event_unsubscribe(XN_EVT_ANY, &s_ctx.event_sub);
+    xn_event_unsubscribe(XN_EVT_ANY, on_event_received);
     
     // 反初始化显示
     xn_display_deinit();
@@ -164,21 +144,24 @@ esp_err_t display_manager_show_page(ui_page_t page)
     }
     
     // 切换页面
+    // 注意：这里需要根据你的 SquareLine Studio 设计来实现
+    // 例如：lv_screen_load(ui_Screen1);
     switch (page) {
         case UI_PAGE_HOME:
-            ui_home_show();
+            // 加载主屏幕（根据你的 SquareLine 设计）
+            // lv_screen_load(ui_Screen1);
             break;
         case UI_PAGE_WIFI:
-            ui_wifi_show();
+            // lv_screen_load(ui_ScreenWiFi);
             break;
         case UI_PAGE_STATUS:
-            ui_status_show();
+            // lv_screen_load(ui_ScreenStatus);
             break;
         case UI_PAGE_SETTINGS:
-            ui_settings_show();
+            // lv_screen_load(ui_ScreenSettings);
             break;
         case UI_PAGE_OTA:
-            ui_ota_show();
+            // lv_screen_load(ui_ScreenOTA);
             break;
         case UI_PAGE_ERROR:
             // 错误页面通过 display_manager_show_error() 显示
@@ -212,7 +195,10 @@ esp_err_t display_manager_update_home(
     }
     
     // 更新主页面数据
-    ui_home_update(state, wifi_ssid, wifi_rssi, ip_addr, mqtt_connected);
+    // 注意：这里需要根据你的 SquareLine Studio 设计来实现
+    // 例如：更新标签文本
+    // lv_label_set_text(ui_LabelWiFi, wifi_ssid);
+    // lv_label_set_text_fmt(ui_LabelIP, "%d.%d.%d.%d", ...);
     
     // 解锁 LVGL
     xn_display_unlock();
@@ -235,7 +221,7 @@ esp_err_t display_manager_update_wifi(
     }
     
     // 更新 WiFi 页面数据
-    ui_wifi_update(ssid, rssi, status);
+    // 根据你的 SquareLine Studio 设计实现
     
     // 解锁 LVGL
     xn_display_unlock();
@@ -257,7 +243,7 @@ esp_err_t display_manager_update_ota(
     }
     
     // 更新 OTA 页面数据
-    ui_ota_update(progress, status);
+    // 根据你的 SquareLine Studio 设计实现
     
     // 解锁 LVGL
     xn_display_unlock();
@@ -278,9 +264,11 @@ esp_err_t display_manager_show_error(const char *error_msg)
         return ESP_ERR_TIMEOUT;
     }
     
-    // 显示错误消息（可以创建一个错误对话框）
-    // 这里简化为在主页面显示
-    lv_obj_t *mbox = lv_msgbox_create(NULL, "错误", error_msg, NULL, true);
+    // 显示错误消息（LVGL 9.x API）
+    lv_obj_t *mbox = lv_msgbox_create(NULL);
+    lv_msgbox_add_title(mbox, "错误");
+    lv_msgbox_add_text(mbox, error_msg);
+    lv_msgbox_add_close_button(mbox);
     lv_obj_center(mbox);
     
     // 解锁 LVGL
@@ -330,14 +318,21 @@ esp_err_t display_manager_set_brightness(uint8_t brightness)
 /**
  * @brief 事件回调函数
  */
-static void on_event_received(uint16_t event_id, void *event_data, void *user_data)
+static void on_event_received(const xn_event_t *event, void *user_data)
 {
+    if (!event) {
+        return;
+    }
+    
+    uint16_t event_id = event->id;
+    void *event_data = event->data;
+    
     // 根据事件类别分发处理
     if (event_id >= XN_EVT_CAT_WIFI && event_id < XN_EVT_CAT_BLUFI) {
         handle_wifi_event(event_id, event_data);
     } else if (event_id >= XN_EVT_CAT_MQTT && event_id < XN_EVT_CAT_BUTTON) {
         handle_mqtt_event(event_id, event_data);
-    } else if (event_id >= XN_EVT_CAT_SYSTEM && event_id < XN_EVT_CAT_WIFI) {
+    } else if (event_id < XN_EVT_CAT_WIFI) {
         handle_system_event(event_id, event_data);
     }
 }

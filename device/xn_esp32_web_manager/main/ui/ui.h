@@ -12,7 +12,7 @@ extern "C" {
 
 #include "lvgl.h"
 
-#include "lv_i18n.h"
+// #include "lv_i18n.h"  // 如果不需要国际化，注释掉
 #include "ui_helpers.h"
 #include "ui_events.h"
 

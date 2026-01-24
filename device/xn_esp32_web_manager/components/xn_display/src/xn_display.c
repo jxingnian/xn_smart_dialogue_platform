@@ -28,9 +28,8 @@ typedef struct {
     bool initialized;                       ///< 初始化标志
     xn_display_config_t config;             ///< 配置信息
     
-    // LVGL 相关
-    lv_disp_t *disp;                        ///< LVGL 显示对象
-    lv_disp_draw_buf_t disp_buf;            ///< LVGL 显示缓冲区
+    // LVGL 相关 (LVGL 9.x API)
+    lv_display_t *disp;                     ///< LVGL 显示对象 (LVGL 9.x: lv_disp_t → lv_display_t)
     lv_color_t *buf1;                       ///< 缓冲区1
     lv_color_t *buf2;                       ///< 缓冲区2
     SemaphoreHandle_t lvgl_mutex;           ///< LVGL 互斥锁
@@ -55,7 +54,7 @@ static xn_display_ctx_t s_ctx = {0};
 
 static void lvgl_tick_timer_cb(void *arg);
 static void lvgl_task(void *arg);
-static void lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_map);
+static void lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map);  // LVGL 9.x API
 static esp_err_t backlight_init(void);
 static esp_err_t backlight_set_duty(uint8_t brightness);
 
@@ -70,7 +69,7 @@ xn_display_config_t xn_display_get_default_config(void)
         .width = 320,
         .height = 240,
         
-        .spi_host = SPI2_HOST,
+        .spi_host = 1,  // SPI2_HOST
         .pin_mosi = GPIO_NUM_47,
         .pin_sclk = GPIO_NUM_48,
         .pin_cs = GPIO_NUM_NC,
@@ -159,24 +158,21 @@ esp_err_t xn_display_init(const xn_display_config_t *config)
         goto err;
     }
     
-    // 6. 初始化 LVGL 显示缓冲区
-    lv_disp_draw_buf_init(&s_ctx.disp_buf, s_ctx.buf1, s_ctx.buf2, s_ctx.config.lvgl_buffer_size);
-    
-    // 7. 注册显示驱动
-    static lv_disp_drv_t disp_drv;
-    lv_disp_drv_init(&disp_drv);
-    disp_drv.hor_res = s_ctx.config.width;
-    disp_drv.ver_res = s_ctx.config.height;
-    disp_drv.flush_cb = lvgl_flush_cb;
-    disp_drv.draw_buf = &s_ctx.disp_buf;
-    s_ctx.disp = lv_disp_drv_register(&disp_drv);
+    // 6. 创建显示对象 (LVGL 9.x 新 API)
+    s_ctx.disp = lv_display_create(s_ctx.config.width, s_ctx.config.height);
     if (s_ctx.disp == NULL) {
-        ESP_LOGE(TAG, "Failed to register display driver");
+        ESP_LOGE(TAG, "Failed to create display");
         ret = ESP_FAIL;
         goto err;
     }
     
-    // 8. 创建 LVGL tick 定时器
+    // 7. 设置显示缓冲区 (LVGL 9.x 新 API)
+    lv_display_set_buffers(s_ctx.disp, s_ctx.buf1, s_ctx.buf2, buf_size, LV_DISPLAY_RENDER_MODE_PARTIAL);
+    
+    // 8. 设置刷新回调 (LVGL 9.x 新 API)
+    lv_display_set_flush_cb(s_ctx.disp, lvgl_flush_cb);
+    
+    // 9. 创建 LVGL tick 定时器
     const esp_timer_create_args_t timer_args = {
         .callback = lvgl_tick_timer_cb,
         .name = "lvgl_tick"
@@ -193,7 +189,7 @@ esp_err_t xn_display_init(const xn_display_config_t *config)
         goto err;
     }
     
-    // 9. 创建 LVGL 任务
+    // 10. 创建 LVGL 任务
     BaseType_t task_ret = xTaskCreate(
         lvgl_task,
         "lvgl_task",
@@ -208,7 +204,7 @@ esp_err_t xn_display_init(const xn_display_config_t *config)
         goto err;
     }
     
-    // 10. 设置默认亮度
+    // 11. 设置默认亮度
     xn_display_set_brightness(80);
     
     s_ctx.initialized = true;
@@ -316,7 +312,7 @@ esp_err_t xn_display_sleep(bool sleep)
     return ESP_OK;
 }
 
-lv_disp_t* xn_display_get_disp(void)
+lv_display_t* xn_display_get_disp(void)  // LVGL 9.x: lv_disp_t → lv_display_t
 {
     return s_ctx.disp;
 }
@@ -375,9 +371,9 @@ static void lvgl_task(void *arg)
 }
 
 /**
- * @brief LVGL 刷新回调
+ * @brief LVGL 刷新回调 (LVGL 9.x 新 API)
  */
-static void lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_map)
+static void lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
 {
     int offsetx1 = area->x1;
     int offsetx2 = area->x2;
@@ -385,10 +381,10 @@ static void lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t 
     int offsety2 = area->y2;
     
     // 绘制位图到 LCD
-    esp_lcd_panel_draw_bitmap(s_ctx.panel_handle, offsetx1, offsety1, offsetx2 + 1, offsety2 + 1, color_map);
+    esp_lcd_panel_draw_bitmap(s_ctx.panel_handle, offsetx1, offsety1, offsetx2 + 1, offsety2 + 1, px_map);
     
-    // 通知 LVGL 刷新完成
-    lv_disp_flush_ready(drv);
+    // 通知 LVGL 刷新完成 (LVGL 9.x 新 API)
+    lv_display_flush_ready(disp);
 }
 
 /**

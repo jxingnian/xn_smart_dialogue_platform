@@ -8,5 +8,5 @@ idf_component_register(
         driver
         esp_timer
         esp_lcd
-        lvgl
+        lvgl__lvgl
 )

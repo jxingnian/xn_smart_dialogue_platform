@@ -16,6 +16,7 @@ sdkconfig.old
 .config
 .config.old
 dependencies.lock
+managed_components/
 
 # WeChat MiniProgram
 blufi_wechat/node_modules/
